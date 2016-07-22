@@ -6,30 +6,32 @@ is_osx || return 1
 
 # Homebrew recipes
 recipes=(
-  android-platform-tools
-  ansible
   bash
-  cmatrix
-  cowsay
+  bash-completion
+  figlet
+  fzf
   git
   git-extras
-  htop-osx
+  htop
   hub
-  id3tool
-  lesspipe
   man2html
-  mercurial
   nmap
-  postgres
-  sl
+  python
+  python3
   ssh-copy-id
-  terminal-notifier
   the_silver_searcher
   tree
-  wget
 )
 
 brew_install_recipes
+
+# Homebrew completions
+kegs=(homebrew/completions)
+brew_tap_kegs
+recipes=(
+  launctl-completion
+  pip-completion
+)
 
 # Misc cleanup!
 

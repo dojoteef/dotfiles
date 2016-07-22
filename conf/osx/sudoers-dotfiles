@@ -11,9 +11,8 @@
 ## Cmnd alias specification
 ##
 ## Groups of commands.  Often used to group related commands together.
-Cmnd_Alias APT      = /usr/bin/apt-get update,/usr/bin/apt-get upgrade
 Cmnd_Alias SHUTDOWN = /sbin/shutdown,/sbin/halt,/sbin/reboot
-Cmnd_Alias PROGS    = APT,SHUTDOWN
+Cmnd_Alias PROGS    = SHUTDOWN
 
 ##
 ## Defaults specification

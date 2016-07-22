@@ -1,18 +1,14 @@
 #!/usr/bin/env bash
 [[ "$1" == "source" ]] || \
 
-echo 'Dotfiles - "Cowboy" Ben Alman - http://benalman.com/'
+echo 'Dotfiles'
 
 if [[ "$1" == "-h" || "$1" == "--help" ]]; then cat <<HELP
 
 Usage: $(basename "$0")
 
 See the README for documentation.
-https://github.com/cowboy/dotfiles
-
-Copyright (c) 2014 "Cowboy" Ben Alman
-Licensed under the MIT license.
-http://benalman.com/about/license/
+https://github.com/dojoteef/dotfiles
 HELP
 exit; fi
 
@@ -22,6 +18,67 @@ exit; fi
 
 # Where the magic happens.
 export DOTFILES=~/.dotfiles
+
+# Determine hostname and user for the rest of the configuration. Use
+# 'DOT' as a prefix so as not to potentially interfere with common 
+# environment variables.
+export DOTHOSTNAME=$(hostname)
+loggedin_user=$(logname)
+current_user=$(whoami)
+if [[ "${current_user}" == "${loggedin_user}" ]]; then
+  export DOTUSER=${current_user}
+else
+cat <<USERNAME
+Your current user (${current_user}) is not the same as the user you logged
+in as (${loggedin_user}). Since the configuration is user specific please
+choose "Y" to use the current user, otherwise it will use the original
+logged in user.
+USERNAME
+  read -n 1 -p "Use current user? [Y/n] " use_current_user; echo
+  if [[ "$use_current_user" =~ [Nn] ]]; then
+    export DOTUSER=${loggedin_user}
+  else
+    export DOTUSER=${current_user}
+  fi
+fi
+
+export DOTVARS=("user" "hostname")
+
+# Substitute variables in files.  The first parameter is the source and an
+# optional second parameter is where to redirect the output (defaults to
+# /dev/stdout)
+function dot_substitute() {
+  local src dest cmd subst priv
+  if [[ "$1" == "sudo" ]]; then priv=1; shift; fi
+
+  src="$1"
+  if [[ "$2" == "" ]]; then
+    dest="/dev/stdout"
+  else
+    dest="$2"
+  fi
+
+  if [[ ${src} != "" ]]; then
+    cmd="sed"
+    for var in "${DOTVARS[@]}"; do
+      # Convert from 'var' to 'DOTVAR'
+      subst="\${$(echo "DOT"$(eval echo "$var" | tr '[:lower:]' '[:upper:]'))}"
+
+      # Escape resultant ${DOTVAR}
+      subst=$(echo "$(eval echo "${subst}")" | sed -e 's/[\/&]/\\&/g')
+
+      # Finally add the sed replacement
+      cmd="${cmd} -e 's/\${"$var"}/${subst}/'"
+    done
+    cmd="${cmd} ${src} > ${dest}"
+  fi
+
+  if [[ ${priv} ]]; then
+    sudo bash -c "${cmd}"
+  else
+    bash -c "${cmd}"
+  fi
+}
 
 # Logging stuff.
 function e_header()   { echo -e "\n\033[1m$@\033[0m"; }
@@ -65,7 +122,7 @@ function path_remove() {
 # Display a fancy multi-select menu.
 # Inspired by http://serverfault.com/a/298312
 function prompt_menu() {
-  local exitcode prompt choices nums i n
+  local exitcode prompt nums
   exitcode=0
   if [[ "$2" ]]; then
     _prompt_menu_draws "$1"
@@ -182,7 +239,7 @@ function init_files() {
       [[ "$remove" ]] || menu_selects=("${menu_selects[@]}" "$opt")
     done
   fi
-  prompt_menu "Run the following init scripts?" $prompt_delay
+  prompt_menu "Run the following init scripts?"
   # Write out cache file for future reading.
   rm "$init_file" 2>/dev/null
   for i in "${!menu_selects[@]}"; do
@@ -258,12 +315,25 @@ function do_stuff() {
 
 # Enough with the functions, let's do stuff.
 
-export prompt_delay=5
+if [[ "$(get_os)" == "" ]]; then
+  e_error "Unknown OS, dotfiles currently only supports OSX and Ubuntu"
+  exit 1
+fi
 
 # Ensure that we can actually, like, compile anything.
 if [[ ! "$(type -P gcc)" ]] && is_osx; then
-  e_error "XCode or the Command Line Tools for XCode must be installed first."
-  exit 1
+  # Get and install Xcode CLI tools
+  e_header "Installing XCode Command Line Tools"
+
+  # See https://raw.githubusercontent.com/timsutton/osx-vm-templates/master/LICENSE.md
+  export INSTALL_XCODE_CLI_TOOLS=true
+  bash -c "$(curl -fsSL https://raw.githubusercontent.com/timsutton/osx-vm-templates/master/scripts/xcode-cli-tools.sh)"
+
+  # If an auto install didn't work then bail
+  if [[ $? != 0 ]]; then
+    e_error "Unable to automatically install the XCode Command Line Tools. Try installing them using 'xcode-select --install"
+    exit 1
+  fi
 fi
 
 # If Git is not installed, install it (Ubuntu only, since Git comes standard
@@ -283,9 +353,8 @@ fi
 if [[ ! -d $DOTFILES ]]; then
   # $DOTFILES directory doesn't exist? Clone it!
   new_dotfiles_install=1
-  prompt_delay=15
   e_header "Downloading dotfiles"
-  git clone --recursive git://github.com/${github_user:-cowboy}/dotfiles.git $DOTFILES
+  git clone --recursive git://github.com/${github_user:-dojoteef}/dotfiles.git $DOTFILES
   cd $DOTFILES
 elif [[ "$1" != "restart" ]]; then
   # Make sure we have the latest files.

@@ -6,12 +6,9 @@ nnoremap j gj
 nnoremap k gk
 
 " Local dirs
-if !has('win32')
-  set backupdir=$DOTFILES/caches/vim
-  set directory=$DOTFILES/caches/vim
-  set undodir=$DOTFILES/caches/vim
-  let g:netrw_home = expand('$DOTFILES/caches/vim')
-endif
+set backupdir=$DOTFILES/caches/vim
+set directory=$DOTFILES/caches/vim
+set undodir=$DOTFILES/caches/vim
 
 " Create vimrc autocmd group and remove any existing vimrc autocmds,
 " in case .vimrc is re-sourced.
@@ -19,26 +16,10 @@ augroup vimrc
   autocmd!
 augroup END
 
-" Theme / Syntax highlighting
-
-" Make invisible chars less visible in terminal.
-autocmd vimrc ColorScheme * :hi NonText ctermfg=236
-autocmd vimrc ColorScheme * :hi SpecialKey ctermfg=236
-" Show trailing whitespace.
-autocmd vimrc ColorScheme * :hi ExtraWhitespace ctermbg=red guibg=red
-" Make selection more visible.
-autocmd vimrc ColorScheme * :hi Visual guibg=#00588A
-autocmd vimrc ColorScheme * :hi link multiple_cursors_cursor Search
-autocmd vimrc ColorScheme * :hi link multiple_cursors_visual Visual
-
-let g:molokai_italic=0
-colorscheme molokai
-set background=dark
-
 " Visual settings
 set cursorline " Highlight current line
 set number " Enable line numbers.
-set showtabline=2 " Always show tab bar.
+set showtabline=1 " Always show tab bar.
 set relativenumber " Use relative line numbers. Current line is still in status bar.
 set title " Show the filename in the window titlebar.
 set nowrap " Do not wrap lines.
@@ -49,18 +30,15 @@ set laststatus=2 " Always show status line
 autocmd vimrc InsertEnter * :set norelativenumber
 autocmd vimrc InsertLeave * :set relativenumber
 
-" Make it obvious where 80 characters is
-set textwidth=121
-let &colorcolumn="81,".join(range(120,999),",")
+" Make it obvious where text would wrap with 'textwidth'
+let &colorcolumn=+1
 
 " Scrolling
-set scrolloff=3 " Start scrolling three lines before horizontal border of window.
-set sidescrolloff=3 " Start scrolling three columns before vertical border of window.
+set scrolloff=0 " Override default in sensible.vim, do not include context above/below cursor when scrolling
 
 " Indentation
-set autoindent " Copy indent from last line when starting new line.
+" TODO: Make these into autocmd per filetype
 set shiftwidth=2 " The # of spaces for indenting.
-set smarttab " At start of line, <Tab> inserts shiftwidth spaces, <Bs> deletes shiftwidth spaces.
 set softtabstop=2 " Tab key results in 2 spaces
 set tabstop=2 " Tabs indent only 2 spaces
 set expandtab " Expand tabs to spaces
@@ -68,63 +46,32 @@ set expandtab " Expand tabs to spaces
 " Reformatting
 set nojoinspaces " Only insert single space after a '.', '?' and '!' with a join command.
 
-" Toggle show tabs and trailing spaces (,c)
-if has('win32')
-  set listchars=tab:>\ ,trail:.,eol:$,nbsp:_,extends:>,precedes:<
-else
-  set listchars=tab:▸\ ,trail:·,eol:¬,nbsp:_,extends:>,precedes:<
-endif
-"set listchars=tab:>\ ,trail:.,eol:$,nbsp:_,extends:>,precedes:<
-"set fillchars=fold:-
-nnoremap <silent> <leader>v :call ToggleInvisibles()<CR>
-
-" Extra whitespace
-autocmd vimrc BufWinEnter * :2match ExtraWhitespaceMatch /\s\+$/
-autocmd vimrc InsertEnter * :2match ExtraWhitespaceMatch /\s\+\%#\@<!$/
-autocmd vimrc InsertLeave * :2match ExtraWhitespaceMatch /\s\+$/
-
-" Toggle Invisibles / Show extra whitespace
-function! ToggleInvisibles()
-  set nolist!
-  if &list
-    hi! link ExtraWhitespaceMatch ExtraWhitespace
-  else
-    hi! link ExtraWhitespaceMatch NONE
-  endif
-endfunction
-
-set nolist
-call ToggleInvisibles()
-
-" Trim extra whitespace
-function! StripExtraWhiteSpace()
-  let l = line(".")
-  let c = col(".")
-  %s/\s\+$//e
-  call cursor(l, c)
-endfunction
-noremap <leader>ss :call StripExtraWhiteSpace()<CR>
-
 " Search / replace
-set gdefault " By default add g flag to search/replace. Add g to toggle.
 set hlsearch " Highlight searches
-set incsearch " Highlight dynamically as pattern is typed.
-set ignorecase " Ignore case of searches.
-set smartcase " Ignore 'ignorecase' if search pattern contains uppercase characters.
+map <silent> <leader>/ <Esc>:nohlsearch<CR> " Clear last search
 
-" Clear last search
-map <silent> <leader>/ <Esc>:nohlsearch<CR>
+if executable('ag') " The Silver Searcher
+  " Use ag over grep
+  set grepprg=ag\ --nogroup\ --nocolor
+
+  " bind K to grep word under cursor
+  nnoremap K :grep! "\b<C-R><C-W>\b"<CR>:cw<CR>
+
+  " New command :Ag which takes standard ag arguments
+  command -nargs=+ -complete=file -bar Ag silent! grep! <args>|cwindow|redraw!
+endif
 
 " Ignore things
-set wildignore+=*.jpg,*.jpeg,*.gif,*.png,*.gif,*.psd,*.o,*.obj,*.min.js
-set wildignore+=*/bower_components/*,*/node_modules/*
-set wildignore+=*/vendor/*,*/.git/*,*/.hg/*,*/.svn/*,*/log/*,*/tmp/*
+set wildignore+=*.jpg,*.jpeg,*.gif,*.png,*.gif,*.psd,*.o,*.obj
+set wildignore+=*/.git/*,*/.hg/*,*/.svn/*
 
 " Vim commands
 set hidden " When a buffer is brought to foreground, remember undo history and marks.
 set report=0 " Show all changes.
 set mouse=a " Enable mouse in all modes.
-set shortmess+=I " Hide intro menu.
+if has('mouse_sgr')
+  set ttymouse=sgr
+endif
 
 " Splits
 set splitbelow " New split goes below
@@ -136,57 +83,8 @@ nnoremap <C-K> <C-W>k
 nnoremap <C-L> <C-W>l
 nnoremap <C-H> <C-W>h
 
-" Buffer navigation
-nnoremap <leader>b :CtrlPBuffer<CR> " List other buffers
-map <leader><leader> :b#<CR> " Switch between the last two files
-map gb :bnext<CR> " Next buffer
-map gB :bprev<CR> " Prev buffer
-
-" Jump to buffer number 1-9 with ,<N> or 1-99 with <N>gb
-let c = 1
-while c <= 99
-  if c < 10
-    execute "nnoremap <silent> <leader>" . c . " :" . c . "b<CR>"
-  endif
-  execute "nnoremap <silent> " . c . "gb :" . c . "b<CR>"
-  let c += 1
-endwhile
-
-" Fix page up and down
-map <PageUp> <C-U>
-map <PageDown> <C-D>
-imap <PageUp> <C-O><C-U>
-imap <PageDown> <C-O><C-D>
-
-" Use Q for formatting the current paragraph (or selection)
-" vmap Q gq
-" nmap Q gqap
-
 " Allow saving of files as sudo when I forgot to start vim using sudo.
 cmap w!! w !sudo tee > /dev/null %
-
-" When editing a file, always jump to the last known cursor position. Don't do
-" it for commit messages, when the position is invalid, or when inside an event
-" handler (happens when dropping a file on gvim).
-autocmd vimrc BufReadPost *
-  \ if &ft != 'gitcommit' && line("'\"") > 0 && line("'\"") <= line("$") |
-  \   exe "normal g`\"" |
-  \ endif
-
-" F12: Source .vimrc & .gvimrc files
-nmap <F12> :call SourceConfigs()<CR>
-
-if !exists("*SourceConfigs")
-  function! SourceConfigs()
-    let files = ".vimrc"
-    source $MYVIMRC
-    if has("gui_running")
-      let files .= ", .gvimrc"
-      source $MYGVIMRC
-    endif
-    echom "Sourced " . files
-  endfunction
-endif
 
 " FILE TYPES
 
@@ -197,12 +95,22 @@ autocmd vimrc BufRead,BufNewFile *.tmpl set filetype=html
 " PLUGINS
 
 " Airline
-let g:airline_powerline_fonts = 1 " TODO: detect this?
+let g:airline_powerline_fonts = 1
+let g:airline_exclude_preview = 1 " See https://github.com/vim-airline/vim-airline/issues/1125
 let g:airline#extensions#tabline#enabled = 1
 let g:airline#extensions#tabline#buffer_nr_format = '%s '
 let g:airline#extensions#tabline#buffer_nr_show = 1
 "let g:airline#extensions#tabline#fnamecollapse = 0
 "let g:airline#extensions#tabline#fnamemod = ':t'
+
+" Promptline
+let g:promptline_theme = 'airline'
+let g:promptline_preset = {
+  \'a': [ promptline#slices#host(), promptline#slices#user() ],
+  \'b': [ promptline#slices#cwd() ],
+  \'c' : [ promptline#slices#vcs_branch(), promptline#slices#git_status() ],
+  \'warn' : [ promptline#slices#last_exit_code() ]
+  \ }
 
 " NERDTree
 let NERDTreeShowHidden = 1
@@ -220,48 +128,109 @@ autocmd vimrc VimEnter *
   \   exec 'cd' fnameescape(argv(0)) |
   \   NERDTree |
   \ end
+let g:NERDTreeIndicatorMapCustom = {
+  \ "Modified"  : "✹",
+  \ "Staged"    : "✚",
+  \ "Untracked" : "✭",
+  \ "Renamed"   : "➜",
+  \ "Unmerged"  : "═",
+  \ "Deleted"   : "✖",
+  \ "Dirty"     : "✗",
+  \ "Clean"     : "✔︎",
+  \ "Unknown"   : "?"
+  \ }
 
 " Signify
-let g:signify_vcs_list = ['git', 'hg', 'svn']
+let g:signify_vcs_list = ['git']
 
-" CtrlP.vim
-map <leader>p <C-P>
-map <leader>r :CtrlPMRUFiles<CR>
-"let g:ctrlp_match_window_bottom = 0 " Show at top of window
+" YouCompleteMe
+let g:ycm_key_list_select_completion = ['<TAB>', '<Down>']
+let g:ycm_key_list_previous_completion = ['<S-TAB>', '<Up>']
 
-" Indent Guides
-let g:indent_guides_start_level = 2
-let g:indent_guides_guide_size = 1
+" UltiSnips
+let g:UltiSnipsJumpForwardTrigger="<c-b>"
+let g:UltiSnipsJumpBackwardTrigger="<c-z>"
+autocmd FileType c UltiSnipsAddFiletypes c
+autocmd FileType cpp UltiSnipsAddFiletypes cpp
+autocmd FileType css UltiSnipsAddFiletypes css
+autocmd FileType go UltiSnipsAddFiletypes go
+autocmd FileType json UltiSnipsAddFiletypes json
+autocmd FileType lua UltiSnipsAddFiletypes lua
+autocmd FileType html UltiSnipsAddFiletypes html
+autocmd FileType python UltiSnipsAddFiletypes python
+autocmd FileType xml UltiSnipsAddFiletypes xml
 
-" Mustache/handlebars
-let g:mustache_abbreviations = 1
+" vim-multiple-cursors
+" Fix YouCompleteMe with vim-multiple-cursors
+" (https://github.com/terryma/vim-multiple-cursors/issues/122#issuecomment-114654967)
+
+" Called once right before you start selecting multiple cursors
+function! Multiple_cursors_before()
+  if exists('*youcompleteme#EnableCursorMovedAutocommands')
+    call youcompleteme#DisableCursorMovedAutocommands()
+  endif
+endfunction
+
+" Called once only when the multiple selection is canceled (default <Esc>)
+function! Multiple_cursors_after()
+  if exists('*youcompleteme#EnableCursorMovedAutocommands')
+    call youcompleteme#EnableCursorMovedAutocommands()
+  endif
+endfunction
+
+" Syntastic
+" Lua checkers
+"let g:syntastic_check_on_open = 1
+"let g:syntastic_lua_checkers = ["luac", "luacheck"]
+"let g:syntastic_lua_luacheck_args = "--no-unused-args" 
+
+" vim-commentary
+" autocmd FileType apache setlocal commentstring=#\ %s " example support for apache comments
 
 " https://github.com/junegunn/vim-plug
 " Reload .vimrc and :PlugInstall to install plugins.
+let s:nvim = has('nvim') && exists('*jobwait')
+if !s:nvim
+  " This is needed in order to install YouCompleteMe if
+  " not using neovim see:
+  " https://github.com/Valloric/YouCompleteMe/issues/1751#issuecomment-151893905
+  let g:plug_timeout = 9999
+endif
+
 call plug#begin('~/.vim/plugged')
-Plug 'bling/vim-airline'
+" Themes
+Plug 'vim-airline/vim-airline'
+Plug 'edkolev/promptline.vim'
+Plug 'edkolev/tmuxline.vim'
+Plug 'jnurmine/Zenburn'
+
+" Syntax
+Plug 'mhinz/vim-signify'
+Plug 'scrooloose/syntastic'
+Plug 'Valloric/YouCompleteMe', { 'do': './install.py' }
+
+" Snippets
+Plug 'SirVer/ultisnips'
+Plug 'honza/vim-snippets'
+
+" File Explorer
+Plug 'scrooloose/nerdtree', { 'on': 'NERDTreeToggle' }
+Plug 'Xuyuanp/nerdtree-git-plugin', { 'on': 'NERDTreeToggle' }
+Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
+Plug 'junegunn/fzf.vim'
+
+" tmux
+Plug 'tmux-plugins/vim-tmux'
+Plug 'christoomey/vim-tmux-navigator'
+
+" Misc
+Plug 'terryma/vim-multiple-cursors'
 Plug 'tpope/vim-sensible'
 Plug 'tpope/vim-surround'
-Plug 'tpope/vim-fugitive'
-Plug 'tpope/vim-vinegar'
 Plug 'tpope/vim-repeat'
 Plug 'tpope/vim-commentary'
-Plug 'tpope/vim-unimpaired'
-Plug 'tpope/vim-eunuch'
-Plug 'scrooloose/nerdtree'
-Plug 'ctrlpvim/ctrlp.vim'
-if v:version < 705 && !has('patch-7.4.785')
-  Plug 'vim-scripts/PreserveNoEOL'
-endif
-Plug 'editorconfig/editorconfig-vim'
-Plug 'nathanaelkane/vim-indent-guides'
-Plug 'pangloss/vim-javascript', {'for': 'javascript'}
-Plug 'mhinz/vim-signify'
-Plug 'mattn/emmet-vim'
-Plug 'mustache/vim-mustache-handlebars'
-Plug 'chase/vim-ansible-yaml'
-Plug 'wavded/vim-stylus'
-Plug 'klen/python-mode', {'for': 'python'}
-Plug 'terryma/vim-multiple-cursors'
-Plug 'wting/rust.vim', {'for': 'rust'}
 call plug#end()
+
+" Theme / Syntax highlighting
+set background=dark
+colorscheme zenburn

@@ -1,13 +1,16 @@
 # Editing
 
-if [[ ! "$SSH_TTY" ]] && is_osx; then
-  export EDITOR='mvim'
-  export LESSEDIT='mvim ?lm+%lm -- %f'
-else
-  export EDITOR='vim'
+# If neovim is installed default to use it
+if [[ "$(type -P nvim)" ]]; then
+  # See if there is a terminal override needed
+  # for nvim to work properly
+  terminfo_dir=$DOTFILES/caches/terminfo
+  if [[ -d "$terminfo_dir" ]] && [[ -e "$terminfo_dir/$TERM" ]]; then
+    alias nvim="TERMINFO=$terminfo_dir nvim"
+  fi
+
+  alias vim='nvim'
 fi
 
+export EDITOR='vim'
 export VISUAL="$EDITOR"
-alias q="$EDITOR"
-alias qv="q $DOTFILES/link/.{,g}vimrc +'cd $DOTFILES'"
-alias qs="q $DOTFILES"
