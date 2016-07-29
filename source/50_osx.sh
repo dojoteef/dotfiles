@@ -3,15 +3,21 @@ is_osx || return 1
 
 # TODO: Revist this file!
 
+# Automatically pull the Github access token from the Keychain on OSX
+export GITHUB_ACCESS_TOKEN=$(security find-generic-password -s github_access_token -a dojoteef -w)
+
 # Of course when brew installs bash completion it requires
 # you to manually put this in your rc
-if [[ "$(type -P brew)" ]] && [[ -f $(brew --prefix)/etc/bash_completion ]]; then
-  . $(brew --prefix)/etc/bash_completion
+if [[ "$(type -P brew)" ]]; then
+  export HOMEBREW_GITHUB_API_TOKEN=$GITHUB_ACCESS_TOKEN
+  if [[ -f $(brew --prefix)/etc/bash_completion ]]; then
+    . $(brew --prefix)/etc/bash_completion
+  fi
 fi
 
-# APPLE, Y U PUT /usr/bin B4 /usr/local/bin?!
-#PATH="/usr/local/bin:$(path_remove /usr/local/bin)"
-#export PATH
+# Allow usr local to over default system binaries
+PATH="/usr/local/bin:$(path_remove /usr/local/bin)"
+export PATH
 
 # Trim new lines and copy to clipboard
 alias c="tr -d '\n' | pbcopy"

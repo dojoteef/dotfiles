@@ -22,3 +22,8 @@ fi
 
 # File size
 alias fs="stat -f '%z bytes'"
+
+if [[ "$(type -P fzf)" ]]; then
+  [ -f ~/.fzf.bash ] && source ~/.fzf.bash
+  [[ "$(type -P ag))" ]] && export FZF_DEFAULT_COMMAND='ag --hidden -g ""' || export FZF_DEFAULT_COMMAND='find .'
+fi

@@ -10,10 +10,13 @@ sudo apt-get -qq dist-upgrade
 packages=(
   bash-completion
   build-essential
+  cmake
   figlet
   git
   git-extras
+  golang
   htop
+  jq
   libssl-dev
   nmap
   python-dev
@@ -22,7 +25,9 @@ packages=(
   python3-pip
   silversearcher-ag
   telnet
+  tmux
   tree
+  vim # Have to have the latest vim for YouCompleteMe and UltiSnips
 )
 
 packages=($(setdiff "${packages[*]}" "$(dpkg --get-selections | grep -v deinstall | awk '{print $1}')"))

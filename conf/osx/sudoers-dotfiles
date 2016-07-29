@@ -29,4 +29,4 @@ Defaults    tty_tickets
 ## User privilege specification
 ##
 ## Allow my user to use the specified commands without a password
-#${user}   ${host}=(root) NOPASSWD:PROGS
+${user}   ${host}=(root) NOPASSWD:PROGS

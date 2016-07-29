@@ -16,7 +16,7 @@ brew update
 
 # Functions used in subsequent init scripts.
 
-# Tap Homebrew kegs.
+# Homebrew kegs.
 function brew_tap_kegs() {
   kegs=($(setdiff "${kegs[*]}" "$(brew tap)"))
   if (( ${#kegs[@]} > 0 )); then
@@ -27,7 +27,14 @@ function brew_tap_kegs() {
   fi
 }
 
-# Install Homebrew recipes.
+function brew_has_tap {
+  if [[ "$(type -P brew)" ]]; then
+    local tap="$1"
+    [[ "$(brew tap 2>/dev/null | grep -w "$tap")" ]] || return 1
+  fi
+}
+
+# Homebrew recipes.
 function brew_install_recipes() {
   recipes=($(setdiff "${recipes[*]}" "$(brew list)"))
   if (( ${#recipes[@]} > 0 )); then
@@ -35,5 +42,31 @@ function brew_install_recipes() {
     for recipe in "${recipes[@]}"; do
       brew install $recipe
     done
+  fi
+}
+
+function brew_has_recipe {
+  if [[ "$(type -P brew)" ]]; then
+    local recipe="$1"
+    [[ "$(brew list 2>/dev/null | grep -w "$recipe")" ]] || return 1
+  fi
+}
+
+# Homebrew casks.
+function brew_install_casks() {
+  casks=($(setdiff "${casks[*]}" "$(brew cask list 2>/dev/null)"))
+  if (( ${#casks[@]} > 0 )); then
+    e_header "Installing Homebrew casks: ${casks[*]}"
+    for cask in "${casks[@]}"; do
+      brew cask install $cask
+    done
+    brew cask cleanup
+  fi
+}
+
+function brew_has_cask {
+  if [[ "$(type -P brew)" ]]; then
+    local cask="$1"
+    [[ "$(brew cask list 2>/dev/null | grep -w "$cask")" ]] || return 1
   fi
 }

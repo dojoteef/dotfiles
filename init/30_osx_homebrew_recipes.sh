@@ -8,30 +8,30 @@ is_osx || return 1
 recipes=(
   bash
   bash-completion
+  cmake
+  coreutils
   figlet
-  fzf
   git
   git-extras
+  # Have to install 'go' package instead of 'golang', they
+  # are equivalent, but brew list shows as 'go' so the scripts
+  # erroneously try to reinstall giving a warning.
+  go
   htop
   hub
+  jq
   man2html
   nmap
   python
   python3
   ssh-copy-id
   the_silver_searcher
+  tmux
   tree
+  vim # Have to have the latest vim for YouCompleteMe and UltiSnips
 )
 
 brew_install_recipes
-
-# Homebrew completions
-kegs=(homebrew/completions)
-brew_tap_kegs
-recipes=(
-  launctl-completion
-  pip-completion
-)
 
 # Misc cleanup!
 
@@ -46,7 +46,7 @@ if [[ "$(type -P $binroot/htop)" ]] && [[ "$(stat -L -f "%Su:%Sg" "$binroot/htop
 fi
 
 # bash
-if [[ "$(type -P $binroot/bash)" && "$(cat /etc/shells | grep -q "$binroot/bash")" ]]; then
+if [[ "$(type -P $binroot/bash)" ]] && [[ "$(cat /etc/shells | grep -w "$binroot/bash")" ]]; then
   e_header "Adding $binroot/bash to the list of acceptable shells"
   echo "$binroot/bash" | sudo tee -a /etc/shells >/dev/null
 fi

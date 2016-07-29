@@ -7,11 +7,11 @@ mkdir -p $HOME/.vim
 # Taken from the nvim-from-vim docs:
 # https://neovim.io/doc/user/nvim.html#nvim-from-vim
 mkdir -p ${XDG_CONFIG_HOME:=$HOME/.config}
-ln -s $HOME/.vim $XDG_CONFIG_HOME/nvim
-ln -s $HOME/.vimrc $XDG_CONFIG_HOME/nvim/init.vim
+[[ -e $XDG_CONFIG_HOME/nvim ]] || ln -s $HOME/.vim $XDG_CONFIG_HOME/nvim
+[[ -e $XDG_CONFIG_HOME/nvim/init.vim ]] || ln -s $HOME/.vimrc $XDG_CONFIG_HOME/nvim/init.vim
 
 [[ "$(type -P nvim)" ]] && e_header "Updating neovim" || e_header "Installing neovim"
-if is_osx then;
+if is_osx; then
   # Exit if Homebrew is not installed.
   [[ ! "$(type -P brew)" ]] && e_error "Brew recipes need Homebrew to install." && return 1
 
@@ -33,8 +33,8 @@ else
 fi
 
 e_header "Ensuring latest neovim package for python2/3 is installed"
-sudo pip2 install --upgrade neovim
-sudo pip3 install --upgrade neovim
+sudo -H pip2 install --upgrade neovim
+sudo -H pip3 install --upgrade neovim
 
 ###########################################################################
 # Now to address the elephant in the room... fixing the discrepancy between
@@ -47,35 +47,56 @@ sudo pip3 install --upgrade neovim
 # https://github.com/neovim/neovim/issues/2048#issuecomment-78045837
 # https://github.com/neovim/neovim/issues/2048#issuecomment-217755170
 ###########################################################################
-
-# First see what termios thinks VERASE is
-re_identifier='[[:space:];]\{1,\}erase'
-re_equals='[[:space:]]*=[[:space:]]*'
-re_value='[^;]\{1,\}'
-cmd="stty -a | grep '$re_identifier' | sed 's/.*$re_identifier$re_equals\($re_value\).*/\1/'"
-termios_erase=$(eval $cmd)
-
-# Then see what terminfo thinks Backspace is
-re_identifier='[[:space:];]\{1,\}kbs'
-re_value='[^,]\{1,\}'
-cmd="infocmp $TERM | grep '$re_identifier' | sed 's/.*$re_identifier$re_equals\($re_value\).*/\1/'"
-terminfo_erase=$(eval $cmd)
-
-# If they don't agree then make terminfo use the termios value
-if [ "$termios_erase" != "$terminfo_erase" ]; then
-  e_header "Fixing nvim terminfo"
-  terminfo_file=/tmp/$TERM.ti
+function fix_terminfo() {
+  local term override_dir terminfo_dir termios_erase terminfo_erase
+  term=$1
   terminfo_dir=$DOTFILES/caches/terminfo
 
-  cmd="infocmp $TERM | \
-       sed 's/\($re_identifier$re_equals\)\($re_value\)/\1$termios_erase'/ \
-       > $terminfo_file"
+  if [[ -d "$terminfo_dir" ]]; then
+    override_dir="$terminfo_dir"
+  fi
 
-  mkdir -p $terminfo_dir
-  tic -o $terminfo_dir $terminfo_file
-  rm -f $terminfo_file
-fi
+  # First see what termios thinks erase is
+  termios_erase="$(stty -g | grep -w 'erase' | sed 's/.*[^a-z]erase=\([^:]\{1,\}\).*/0x\1/' | xargs printf %o)"
+
+  # Then see what terminfo thinks backspace is
+  terminfo_erase="$(TERMINFO="$override_dir" tput -T$term kbs)"
+  if [[ "$(printf $terminfo_erase | od -t oC | tail -1)" -eq 1 ]]; then
+    # If it is a single character then converting it with od is the correct approach,
+    # otherwise it means it's a character sequence which is more likely a octal or hex number.
+    terminfo_erase="$(printf $terminfo_erase | od -t oC | head -n 1 | awk '{print $2}')"
+  fi
+
+  # If they don't agree then make terminfo use the termios value
+  if [[ "$termios_erase" ]] && [[ "$terminfo_erase" ]] && [[ "$termios_erase" != "$terminfo_erase" ]]; then
+    echo "Fixing neovim terminfo for $term"
+    echo "termios_erase: $termios_erase, terminfo_erase=$terminfo_erase"
+    local terminfo_file re_identifier re_equals re_value cmd
+    terminfo_file=/tmp/$term.ti
+
+    re_identifier="[[:space:],]\{1,\}kbs"
+    re_equals="[[:space:]]*=[[:space:]]*"
+    re_value="[^,]\{1,\}"
+
+    cmd="infocmp $term | sed 's/\($re_identifier$re_equals\)\($re_value\)/\1$termios_erase'/ > $terminfo_file"
+    bash -c "$cmd"
+
+    mkdir -p $terminfo_dir
+    tic -o $terminfo_dir $terminfo_file
+    rm -f $terminfo_file
+  fi
+}
+
+# Fix commonly used terminal types
+e_header "Fixing terminfo for neovim"
+fix_terminfo "screen-256color"
+fix_terminfo "xterm-256color"
 
 # Need this such that later uses of vim command (see 50_vim.sh and
 # 60_prompts.sh) use the correct vim.
-alias vim='nvim'
+# 
+# This is disabled for now since vim-plug does not play nicely
+# with neovim when doing 'nvim +PlugInstall +qall'.
+# https://github.com/junegunn/vim-plug/issues/104
+# https://github.com/junegunn/vim-plug/issues/499
+# export VIM='nvim'

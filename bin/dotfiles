@@ -22,11 +22,11 @@ export DOTFILES=~/.dotfiles
 # Determine hostname and user for the rest of the configuration. Use
 # 'DOT' as a prefix so as not to potentially interfere with common 
 # environment variables.
-export DOTHOSTNAME=$(hostname)
+DOTHOST=$(hostname)
 loggedin_user=$(logname)
 current_user=$(whoami)
 if [[ "${current_user}" == "${loggedin_user}" ]]; then
-  export DOTUSER=${current_user}
+  DOTUSER=${current_user}
 else
 cat <<USERNAME
 Your current user (${current_user}) is not the same as the user you logged
@@ -36,13 +36,13 @@ logged in user.
 USERNAME
   read -n 1 -p "Use current user? [Y/n] " use_current_user; echo
   if [[ "$use_current_user" =~ [Nn] ]]; then
-    export DOTUSER=${loggedin_user}
+    DOTUSER=${loggedin_user}
   else
-    export DOTUSER=${current_user}
+    DOTUSER=${current_user}
   fi
 fi
 
-export DOTVARS=("user" "hostname")
+DOTVARS=("user" "host")
 
 # Substitute variables in files.  The first parameter is the source and an
 # optional second parameter is where to redirect the output (defaults to
@@ -79,6 +79,9 @@ function dot_substitute() {
     bash -c "${cmd}"
   fi
 }
+
+# Simple function to join strings with a multi-character separator
+function join_strings() { sep="$1"; shift; str="$(printf "${sep}%s" "${@}")"; echo "${str}"; }
 
 # Logging stuff.
 function e_header()   { echo -e "\n\033[1m$@\033[0m"; }
@@ -320,6 +323,12 @@ if [[ "$(get_os)" == "" ]]; then
   exit 1
 fi
 
+# Ask for the administrator password upfront
+sudo -v
+
+# Keep-alive: update existing `sudo` time stamp until `dotfiles` has finished
+while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+
 # Ensure that we can actually, like, compile anything.
 if [[ ! "$(type -P gcc)" ]] && is_osx; then
   # Get and install Xcode CLI tools
@@ -366,6 +375,17 @@ elif [[ "$1" != "restart" ]]; then
   if [[ "$(git rev-parse HEAD)" != "$prev_head" ]]; then
     e_header "Changes detected, restarting script"
     exec "$0" "restart"
+  fi
+fi
+
+if [[ "$new_dotfiles_install" == "" ]] && [[ "$TERM_PROGRAM" == "iTerm.app" ]]; then
+  e_error "You are running this setup from iTerm. It will not" \
+    "be able to correctly apply iTerm settings if iTerm is running." \
+    "It is recommended to run this from Terminal instead." \
+    "Would you like to continue setup?"
+  read -n 1 -p "Continue setup? [y/N] " continue_setup; echo
+  if [[ ! "$continue_setup" =~ [Yy] ]]; then
+    exit
   fi
 fi
 

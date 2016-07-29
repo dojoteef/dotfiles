@@ -5,10 +5,11 @@ if [[ "$(type -P nvim)" ]]; then
   # See if there is a terminal override needed
   # for nvim to work properly
   terminfo_dir=$DOTFILES/caches/terminfo
-  if [[ -d "$terminfo_dir" ]] && [[ -e "$terminfo_dir/$TERM" ]]; then
-    alias nvim="TERMINFO=$terminfo_dir nvim"
+  if [[ -d "$terminfo_dir" ]]; then
+    alias nvim="TERMINFO=$terminfo_dir/ $(type -P nvim | head -1)"
   fi
 
+  alias vi='nvim'
   alias vim='nvim'
 fi
 

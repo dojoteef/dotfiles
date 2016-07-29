@@ -1,0 +1,99 @@
+#!/usr/bin/xcrun swift
+
+import AppKit
+import Foundation
+
+func archivedFontWithName(name: String, size: Float) -> NSData? {
+  if let font = NSFont(name: name, size: CGFloat(size)) {
+    return NSKeyedArchiver.archivedDataWithRootObject(font)
+  }
+  return nil
+}
+
+func customizeColorScheme(inout colorScheme: [String:AnyObject], font: NSData?, fontHeight: Float?) {
+  if let _font = font {
+    colorScheme["Font"] = _font
+  }
+  if let _fontHeight = fontHeight {
+    colorScheme["FontHeightSpacing"] = _fontHeight
+  }
+}
+
+func arguments() -> (themes: [String], parameters: [String:String]) {
+  var themes: [String] = []
+  var parameters: [String:String] = [:]
+
+  var bin = ""
+  var key = ""
+  for arg in Process.arguments {
+    switch arg {
+      case "-D", "--default":
+        key = "default"
+      case "-d", "--dir":
+        key = "directory"
+      case "-f", "--font":
+        key = "font"
+      case "-s", "--font-size":
+        key = "fontSize"
+      case "-h", "--font-height-spacing":
+        key = "fontHeightSpacing"
+      default:
+        if bin.isEmpty {
+          bin = arg
+        }
+        else if key.isEmpty {
+          themes.append(arg)
+        }
+        else {
+          parameters[key] = arg
+          key = ""
+        }
+    }
+  }
+
+  return (themes, parameters)
+}
+
+func addTerminalTheme(inout defaults: [String:AnyObject], themeName: String, directory: NSString, font: NSData?, fontHeight: Float?) {
+  let terminalFile = directory.stringByAppendingPathComponent(themeName + ".terminal")
+  if var terminalTheme = NSDictionary(contentsOfFile: terminalFile) as? [String:AnyObject] {
+    print("Adding Terminal theme: \(themeName)")
+
+    customizeColorScheme(&terminalTheme, font: font, fontHeight: fontHeight)
+    defaults[themeName] = terminalTheme
+  } else {
+    print("Unable to load \(terminalFile)")
+  }
+}
+
+let args = arguments()
+if args.themes.count > 0 {
+  let parameters = args.parameters
+  let fontName = parameters["font"] ?? "Osaka"
+  let fontSizeString : NSString = parameters["fontSize"] ?? "14"
+  let fontSize = fontSizeString.floatValue
+  let fontHeightString : NSString = parameters["fontHeightSpacing"] ?? "1"
+  let fontHeight = fontHeightString.floatValue
+  let directory = (parameters["directory"] ?? ".") as NSString
+  let font = archivedFontWithName(fontName, size: fontSize)
+  if let defaults = NSUserDefaults(suiteName: "com.apple.Terminal") {
+    if var defaultThemes = defaults.dictionaryForKey("Window Settings") {
+      for theme in args.themes {
+        addTerminalTheme(&defaultThemes, themeName: theme, directory: directory, font: font, fontHeight: fontHeight)
+      }
+
+      defaults.setObject(defaultThemes, forKey: "Window Settings")
+      if let defaultTheme = args.parameters["default"] {
+        print("Setting \(defaultTheme) as the default theme.")
+        defaults.setObject(defaultTheme, forKey: "Startup Window Settings")
+        defaults.setObject(defaultTheme, forKey: "Default Window Settings")
+      }
+    }
+  }
+  else
+  {
+    print("Unable to source com.apple.Terminal defaults.")
+  }
+} else {
+  print("Usage: osx_terminal_theme [-d/--dir <dir>] [-D/--default <default theme>] [-f/--font <font>] [-s/--font-size <number>] [-h/--font-height-spacing <number>] <theme name>...")
+}

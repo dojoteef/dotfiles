@@ -1,11 +1,13 @@
-# Install all powerline fonts
+# Ubuntu-only stuff. Abort if not Ubuntu.
+is_ubuntu || return 1
 
+# Install all powerline fonts
 cache_dir=$DOTFILES/caches/fonts
 
 # Create directory if it doesn't exist.
 [[ -d "$cache_dir" ]] || mkdir -p "$cache_dir"
 
-powerline_fonts="$cachedir/powerline-fonts"
+powerline_fonts="$cache_dir/powerline-fonts"
 if [[ ! -d "$powerline_fonts" ]]; then
   e_header "Installing powerline fonts"
   git clone --depth 1 git://github.com/powerline/fonts.git $powerline_fonts
