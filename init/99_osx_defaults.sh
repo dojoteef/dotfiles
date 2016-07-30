@@ -244,7 +244,7 @@ sudo chflags nohidden /Volumes
 #################################
 
 # Set the icon size of Dock items to 36 pixels
-defaults write com.apple.dock tilesize -int 36
+defaults write com.apple.dock tilesize -int 65
 
 # Change minimize/maximize window effect
 defaults write com.apple.dock mineffect -string "scale"
@@ -404,10 +404,17 @@ defaults -currentHost write com.apple.ImageCapture disableHotPlug -bool true
 # Kill affected apps
 #######################
 
-affected_apps=("Activity Monitor" "cfprefsd" "Dock" "Finder" "Messages" \
-  "Photos" "Safari" "SystemUIServer" "Terminal")
+affected_apps=("Terminal" "Activity Monitor" "cfprefsd" "Dock" "Finder" "Messages" \
+  "Photos" "Safari" "SystemUIServer")
+if [[ "$TERM_PROGRAM" == "Apple_Terminal" ]]; then
+  e_error "You are running this from Terminal.app. After the script successfully \
+    completes restart Terminal.app to ensure the changes are correctly applied."
 
-e_error "To apply all settings you must exit the following applications: \
+  # Remove "Terminal" it is set as the first element in the array
+  affected_apps="${affected_apps[@]:1}"
+fi
+
+e_arrow "To apply all settings you must exit the following applications: \
   $(join_strings "\n   " "${affected_apps[@]}")"
 read -n 1 -p "Close affected applications [y/N] " kill_affected; echo
 
