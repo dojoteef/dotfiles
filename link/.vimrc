@@ -133,7 +133,9 @@ if has('mouse_sgr')
 endif
 
 " Override default in sensible.vim, do not include context above/below cursor
-" when scrolling
+" when scrolling. Have to implement it this way because sensible.vim will
+" set scrolloff=1 if it is 0, which is the value I want and it cannot be
+" overridden due to the order of sourcing sensible.vim files.
 autocmd vimrc VimEnter * :set scrolloff=0
 
 """"""""""""""""""""""""
@@ -358,25 +360,302 @@ endif
 if isdirectory(expand(b:plugin_directory . '/ultisnips'))
   let g:UltiSnipsJumpForwardTrigger='<c-b>'
   let g:UltiSnipsJumpBackwardTrigger='<c-z>'
-  autocmd FileType c UltiSnipsAddFiletypes c
-  autocmd FileType cpp UltiSnipsAddFiletypes cpp
-  autocmd FileType css UltiSnipsAddFiletypes css
-  autocmd FileType go UltiSnipsAddFiletypes go
-  autocmd FileType json UltiSnipsAddFiletypes json
-  autocmd FileType lua UltiSnipsAddFiletypes lua
-  autocmd FileType html UltiSnipsAddFiletypes html
-  autocmd FileType python UltiSnipsAddFiletypes python
-  autocmd FileType xml UltiSnipsAddFiletypes xml
+  autocmd vimrc FileType c UltiSnipsAddFiletypes c
+  autocmd vimrc FileType cpp UltiSnipsAddFiletypes cpp
+  autocmd vimrc FileType css UltiSnipsAddFiletypes css
+  autocmd vimrc FileType go UltiSnipsAddFiletypes go
+  autocmd vimrc FileType json UltiSnipsAddFiletypes json
+  autocmd vimrc FileType lua UltiSnipsAddFiletypes lua
+  autocmd vimrc FileType html UltiSnipsAddFiletypes html
+  autocmd vimrc FileType python UltiSnipsAddFiletypes python
+  autocmd vimrc FileType xml UltiSnipsAddFiletypes xml
 endif
 
 "///////////"
 " Neomake "
 "///////////"
 if isdirectory(expand(b:plugin_directory . '/neomake'))
-  " Lua checkers
-  "let g:syntastic_check_on_open = 1
-  "let g:syntastic_lua_checkers = ["luac", "luacheck"]
-  "let g:syntastic_lua_luacheck_args = "--no-unused-args" 
+  " Only enable my makeshift neomake ide if neomake has
+  " asynchronous job support which makes the lint
+  " as you type approach work without constant pauses.
+  let g:enable_neomake_ide = neomake#has_async_support()
+
+  " The number of milliseconds to wait before running
+  " another neomake lint over the file. If you set
+  " this too low it will end up having a lot of flicker
+  " which can be distracting.
+  let g:neomake_updatetime = 2000
+  let g:neomake_list_height = 10
+
+  " For debugging
+  "let g:neomake_verbose = 3
+
+  let s:neomake_buffers = {}
+  function! s:neomake_buffer_name(basename)
+    let l:fname = expand(a:basename.':p:t')
+    let l:tmpdir = fnamemodify(tempname(), ':p:h')
+    return fnameescape(join([l:tmpdir, l:fname], '/'))
+  endfunction
+
+  let s:neomake_makers_by_buffer = {}
+  function! s:neomake_get_makers(bufnr)
+    if !has_key(s:neomake_makers_by_buffer, a:bufnr)
+      let s:neomake_makers_by_buffer[a:bufnr] = {}
+    endif
+    let l:makers_for_buffer = s:neomake_makers_by_buffer[a:bufnr]
+
+    let l:ft = &filetype
+    let l:makers = []
+    let l:maker_names = neomake#GetEnabledMakers(l:ft)
+    for maker_name in l:maker_names
+      let l:maker = neomake#GetMaker(maker_name, l:ft)
+      let l:full_maker_name = string(a:bufnr).'_'.l:ft.'_'.maker_name
+
+      " Some makers (like the default go makers) operate on an entire
+      " directory which breaks for this file based linting approach.
+      " If 'append_file' exists and is 0 then this is a maker which
+      " operates on the directory rather than the file so skip it.
+      if exists('l:maker') && get(l:maker, 'append_file', 1)
+        if !exists('l:makers_for_buffer[l:full_maker_name]')
+          " Store off the original values
+          let l:maker.obufnr = a:bufnr
+          if exists('l:maker.postprocess')
+            let l:maker.original = type(l:maker.postprocess) == type('') ?
+                  \ function(l:maker.postprocess) : l:maker.postprocess
+          endif
+
+          " Wrap the existing post process to do extra processing
+          " after it completes
+          function! l:maker.postprocess(entry)
+            " If call the original postprocess if it exists
+            if exists('self.original')
+              call self.original(a:entry)
+            endif
+
+            " The neomake job was executed on the temp buffer, so fix up
+            " the location list entry to point to the real buffer.
+            let a:entry.bufnr = self.obufnr
+          endfunction
+
+          let l:maker.name = l:full_maker_name
+          let l:makers_for_buffer[l:full_maker_name] = l:maker
+        endif
+
+        call add(l:makers, l:maker)
+      endif
+    endfor
+
+    return l:makers
+  endfunction
+
+  function! s:neomake_setup_ide()
+    let l:bufnr = bufnr('%')
+    if exists('s:neomake_buffers[l:bufnr]')
+      return
+    endif
+
+    let l:makers = s:neomake_get_makers(l:bufnr)
+    if len(l:makers)
+      " This is a filetype with makers
+      let s:neomake_buffers[l:bufnr] = {
+            \ 'bufnr': l:bufnr,
+            \ 'file': s:neomake_buffer_name('%'),
+            \ 'force': 0,
+            \ 'job_ids': [],
+            \ 'makers': l:makers
+            \ }
+
+      " Make sure the location list is always showing
+      call setloclist(0, [{'bufnr': l:bufnr, 'text': "No errors"}], 'r')
+      silent! execute 'lwindow' g:neomake_list_height
+            \ | execute 'lopen'
+            \ | wincmd p
+
+      " Make sure the sign column is always showing
+      execute 'sign place 999999 line=1 name=neomake_invisible buffer='.l:bufnr
+
+      " Run neomake on the initial load of the buffer to check for errors
+      let b:lastchangedtick = -1
+      call s:neomake_onchange(l:bufnr)
+
+      autocmd s:neomake TextChangedI,CursorHoldI <buffer> call s:neomake_onchange(bufnr('%'))
+      autocmd s:neomake TextChanged,InsertLeave,CursorHold <buffer> call s:neomake_onchange(bufnr('%'), 1)
+    endif
+  endfunction
+
+  function! s:neomake_running(bufinfo)
+    " Check for manually initiated jobs
+    let l:jobs = neomake#GetJobs()
+    for jobinfo in values(l:jobs)
+      if jobinfo.bufnr == a:bufinfo.bufnr
+        return 1
+      endif
+    endfor
+
+    return 0
+  endfunction
+
+  function! s:neomake_onchange(bufnr, ...)
+    " Only run if the buffer has been modified
+    if b:changedtick == b:lastchangedtick
+      return
+    endif
+
+    " Get the appropriate buffer info by filename
+    let l:bufinfo = s:neomake_buffers[a:bufnr]
+
+    " See if a force update is specified. If there is an external
+    " (not initiated by the IDE) job pending it will run after the
+    " current job completes.
+    let l:bufinfo.force = l:bufinfo.force || get(a:, '1')
+
+    " Get current time and time of last update
+    let l:time = reltime()
+    let l:updated = get(l:bufinfo, 'updated')
+
+    " Only run neomake if there isn't already a job running for this buffer.
+    if s:neomake_running(l:bufinfo)
+      return
+    endif
+
+    " And if enough time has passed since the last update, unless
+    " forcing an update.
+    if !l:bufinfo.force
+      if l:updated == 0
+        let l:elapsed = g:neomake_updatetime
+      else
+        let l:elapsed = 1000 * str2float(reltimestr(reltime(l:updated, l:time)))
+      endif
+
+      if l:elapsed < g:neomake_updatetime
+        return
+      endif
+    endif
+
+    " Since there are no more early returns clear the force flag
+    let l:bufinfo.force = 0
+
+    " Cancel any in progress jobs
+    for job_id in l:bufinfo.job_ids
+      try
+        " TODO: Cancel job does not appear to be working. I'll submit
+        " a patch, but in the meantime manually cancel the job.
+        " call neomake#CancelJob(job_id)
+        call jobstop(job_id)
+      catch /^Vim\%((\a\+)\)\=:E900/
+        " Ignore invalid job id errors. Happens when the job is done,
+        " but on_exit hasn't been called yet.
+      endtry
+    endfor
+
+    " Update the time
+    let b:lastchangedtick = b:changedtick
+    let l:bufinfo.updated = l:time
+
+    " Need the original filetype in order to set the new buffer to the
+    " correct filetype (it might not be automatically detected)
+    let l:ft = &filetype
+
+    " Store off current state
+    let l:winstate = winsaveview()
+
+    " Remove all signs on the current buffer
+    call neomake#signs#ResetFile(a:bufnr)
+
+    " Write the temporary file and open it
+    let l:tmpfile = l:bufinfo.file
+    silent! call writefile(getline(1, '$'), l:tmpfile)
+    silent! execute 'edit' l:tmpfile
+
+    " Make sure it is unlisted and has the proper filetype
+    silent! execute 'setlocal bufhidden=hide noswapfile nobuflisted filetype='.l:ft
+
+    " Run neomake in file mode with the updated makers
+    " Do not run silent incase of verbose output (g:neomake_verbose)
+    let l:bufinfo.job_ids = neomake#Make(1,
+          \ l:bufinfo.makers, function('s:neomake_job_completed'))
+
+    " Edit the previous buffer (the original file)
+    silent! execute 'edit' fnameescape(expand('#'))
+
+    " Restore winstate and redraw
+    silent! call winrestview(l:winstate)
+  endfunction
+
+  function s:neomake_job_completed(info)
+    " There are more jobs for this maker so wait for them to complete.
+    if a:info.has_next
+      return
+    endif
+
+   " The maker name includes the bufnr, so coerce the string into
+   " a number ("1_string" + 0 == 1)
+   let s:neomake_completed_bufnr = a:info.name + 0
+  endfunction
+
+  function s:neomake_complete()
+    " This completion is not from the IDE
+    if !exists('s:neomake_completed_bufnr')
+      return
+    endif
+
+    " Get the original bufinfo
+    let l:bufnr = s:neomake_completed_bufnr
+    let l:bufinfo = s:neomake_buffers[l:bufnr]
+    unlet s:neomake_completed_bufnr
+
+    " Clear out the list of job ids since they have all finished
+    let l:bufinfo.job_ids = []
+
+    silent! call neomake#CleanOldFileSignsAndErrors(l:bufnr)
+
+    " Might consider setting the loclist for all windows that
+    " are displaying the buffer.
+    let l:winnr = bufwinnr(l:bufnr)
+    let l:loclist = getloclist(l:winnr)
+    if type(l:loclist) !=# type([]) || len(l:loclist) == 0
+      call setloclist(l:winnr, [{'bufnr': l:bufnr, 'text': "No errors"}], 'r')
+    endif
+
+    let l:bufinfo = s:neomake_buffers[l:bufnr]
+    if l:bufinfo.force
+      " If there is a force update pending then go ahead and trigger it
+      call s:neomake_onchange(l:bufnr, l:bufinfo.force)
+    else
+      "XXX: Calling delete somehow causes the loclist to be empty BEFORE the
+      "call to delete... weird
+      "call delete(l:bufinfo.file)
+    endif
+  endfunction
+
+  function! s:neomake_remove(file)
+    " Since this is called for every BufWipeout ensure it is a tracked buffer
+    let l:bufnr = bufnr(a:file)
+    let l:bufinfo = get(s:neomake_buffers, l:bufnr, {})
+
+    if len(l:bufinfo)
+      call delete(l:bufinfo.file)
+      call remove(s:neomake_buffers, l:bufnr)
+    endif
+  endfunction
+
+  function! s:neomake_remove_all()
+    for bufinfo in keys(s:neomake_buffers)
+      call delete(bufinfo.file)
+    endfor
+    let s:neomake_buffers = {}
+  endfunction
+
+  augroup s:neomake
+    autocmd!
+  augroup END
+
+  if get(g:, 'enable_neomake_ide')
+    autocmd s:neomake BufEnter * call s:neomake_setup_ide()
+    autocmd s:neomake User NeomakeFinished call s:neomake_complete()
+    autocmd s:neomake VimLeavePre * call s:neomake_remove_all()
+    autocmd s:neomake BufWipeout * call s:neomake_remove(<afile>)
+  endif
 endif
 
 "////////////////"
@@ -384,7 +663,7 @@ endif
 "////////////////"
 if isdirectory(expand(b:plugin_directory . '/vim-commentary'))
   " example support for apache comments
-  "autocmd FileType apache setlocal commentstring=#\ %s
+  "autocmd vimrc FileType apache setlocal commentstring=#\ %s
 endif
 
 "///////////////"
