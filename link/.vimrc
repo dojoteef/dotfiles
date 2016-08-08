@@ -36,7 +36,7 @@ endif
 " For some reason if this is a script var (s:var) vim complains that it does
 " not exist when using it in the Plug function, so make it a buffer var
 " (b:var).
-let b:ycm_install_cmd = '.install.py'
+let b:ycm_install_cmd = './install.py'
 if executable('clang')
   let b:ycm_install_cmd .= ' --clang-completer'
 endif
