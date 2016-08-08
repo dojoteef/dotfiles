@@ -303,22 +303,20 @@ if isdirectory(expand(b:plugin_directory . '/vim-airline'))
   let g:airline_exclude_preview = 1
 
   let g:airline_theme = 'zenburn'
+
+  " Only enable tmuxline and promptline while installing
   let g:airline#extensions#tmuxline#enabled = g:vim_installing
   let g:airline#extensions#promptline#enabled = g:vim_installing
+
+  " Setup tabline
   let g:airline#extensions#tabline#enabled = 1
   let g:airline#extensions#tabline#buffer_nr_format = '%s '
   let g:airline#extensions#tabline#buffer_nr_show = 1
   let g:airline#extensions#tabline#fnamemod = ':.:t'
   let g:airline#extensions#tabline#formatter = 'unique_tail_improved'
-  let airline#extensions#tabline#ignore_bufadd_pat = '\c\vnerd_tree'
+  let g:airline#extensions#tabline#ignore_bufadd_pat = '\c\vnerd_tree'
 
-  " Only enable powerline fonts in iTerm when using the Powerline profile
   let g:airline_powerline_fonts = 1
-  " I think I'm happy enough with my tweak to the fonts in Terminal to use
-  " Powerline fonts for both Terminal and iTerm
-  "      \ $TERM_PROGRAM == "iTerm.app"
-  "      \ && $ITERM_PROFILE == "Powerline"
-
   if !exists('g:airline_symbols')
     let g:airline_symbols = {}
   endif
@@ -472,22 +470,31 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
   " another neomake lint over the file. If you set
   " this too low it will end up having a lot of flicker
   " which can be distracting.
-  let g:neomake_updatetime = 2000
+  let g:neomake_ide_updatetime = 3000
+
+  " What type of automatic location list management to use:
+  " 0: No automatic management
+  " 1: 'Smart' management (open/close single location list below current window)
+  " 2: 'Smart' management (open/close all location lists below corresponding window)
+  " 3: 'Smart' management + always open location list
+  let g:neomake_ide_loclist_management = 1
+
+  " neomake defaults for quickfix/location list management
+  let g:neomake_open_list = 0
   let g:neomake_list_height = 10
-  let g:neomake_max_location_lists = 1
 
   " For debugging
-  " let g:neomake_verbose = 3
+" let g:neomake_verbose = 3
 
   let s:neomake_buffers = {}
-  function! Neomake_buffer_name(basename)
+  function! s:neomake_buffer_name(basename)
     let l:fname = expand(a:basename.':p:t')
     let l:tmpdir = fnamemodify(tempname(), ':p:h')
     return fnameescape(join([l:tmpdir, l:fname], '/'))
   endfunction
 
   let s:neomake_makers_by_buffer = {}
-  function! Neomake_get_makers(bufnr)
+  function! s:neomake_get_makers(bufnr)
     if !has_key(s:neomake_makers_by_buffer, a:bufnr)
       let s:neomake_makers_by_buffer[a:bufnr] = {}
     endif
@@ -541,7 +548,11 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
   " addressed this can be revisited:
   " https://github.com/neovim/neovim/issues/3933
   " http://tarruda.github.io/articles/neovim-smart-ui-protocol/
-  function! Neomake_manage_loclists(bufnr, ...)
+  function! s:neomake_manage_loclists(bufnr, ...)
+    if !get(g:, 'neomake_ide_loclist_management')
+      return
+    endif
+
     if !has_key(s:neomake_buffers, a:bufnr)
       call neomake#utils#DebugMessage("IDE: not a recognized neomake buffer")
       return
@@ -571,11 +582,11 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
     endif
 
     let s:neomake_managing_loclists = 1
-    call Neomake_windo('Neomake_loclist_set', a:bufnr, l:loclist)
-    call s:repeat_while_true('Neomake_windo', 'Neomake_loclist_close')
-    call s:repeat_while_true('Neomake_windo', 'Neomake_loclist_open')
-    let l:winnr =  Neomake_windo('s:find_window', 'w:neomake_loclist_winnr')
-    call Neomake_windo('s:unlet', 'w:neomake_loclist_', ['opened', 'closed', 'winnr'])
+    call s:neomake_windo('s:neomake_loclist_set', a:bufnr, l:loclist)
+    call s:repeat_while_true('s:neomake_windo', 's:neomake_loclist_close')
+    call s:repeat_while_true('s:neomake_windo', 's:neomake_loclist_open')
+    let l:winnr =  s:neomake_windo('s:find_window', 'w:neomake_loclist_winnr')
+    call s:neomake_windo('s:unlet', 'w:neomake_loclist_', ['opened', 'closed', 'winnr'])
     unlet s:neomake_managing_loclists
 
     if l:winnr != v:null
@@ -584,7 +595,7 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
     endif
   endfunction
 
-  function! Neomake_windo(...)
+  function! s:neomake_windo(...)
     let l:ignorelist = &eventignore
     let &eventignore = "WinEnter,WinLeave,BufEnter,BufLeave"
 
@@ -614,7 +625,7 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
     return l:retval
   endfunction
 
-  function! Neomake_loclist_set(...)
+  function! s:neomake_loclist_set(...)
     let l:bufnr = get(a:, '1')
     let l:loclist = get(a:, '2', [])
     if l:bufnr == bufnr('%')
@@ -623,7 +634,7 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
     endif
   endfunction
 
-  function! Neomake_loclist_close(...)
+  function! s:neomake_loclist_close(...)
     let l:empty_only = get(a:, '1')
     if !exists('w:neomake_loclist_closed')
           \ && (!l:empty_only || len(getloclist(0)) == 0)
@@ -635,40 +646,67 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
     endif
   endfunction
 
-  function! Neomake_loclist_open(...)
-    if len(getloclist(0)) > 0 && !exists('w:neomake_loclist_opened')
+  function! s:neomake_loclist_open(...)
+    let l:length = len(getloclist(0))
+    let l:manage = get(g:, 'neomake_ide_loclist_management')
+
+    " If only the current loclist should be opened
+    let l:open_current = (l:manage == 1)
+          \ && exists('w:neomake_loclist_winnr')
+          \ && l:length > 0
+
+    " If any non-empty loclist should be opened
+    let l:open_nonempty = (l:manage == 2)
+          \ && l:length > 0
+
+    " If loclist should always be opened
+    let l:open_always = (l:manage == 3)
+
+    if (l:open_current || l:open_nonempty || l:open_always) && !exists('w:neomake_loclist_opened')
       call neomake#utils#DebugMessage("IDE: opening the location list for bufnr: ".bufnr('%')." winnr: ".winnr())
       let w:neomake_loclist_opened = 1
 
-      "execute 'lopen' g:neomake_list_height
+      if l:length == 0
+        call setloclist(0, [{'bufnr': bufnr('%'), 'text': "No errors"}], 'r')
+        silent! execute 'lwindow' get(g:, 'neomake_list_height', 10)
+      endif
+
       lopen
       return 1
     endif
   endfunction
 
-  function! Neomake_loclist_setup(bufnr)
+  function! s:neomake_loclist_setup(bufnr)
     if exists('w:neomake_loclist_setup') || !has_key(s:neomake_buffers, a:bufnr)
       return
     endif
 
+    " Not entirely certain why, but airline makes my neomake ide extremely
+    " slow; disable it in any neomake ide windows. I profiled it and noticed
+    " that the palette dict in the airline#highlighter#highlight function
+    " seemed to be larger for some reason (at least the for loop had more
+    " calls with it enabled vs. disabled). I believe it has something to do
+    " with the creation/deletion of location list windows that neomake ide is
+    " constantly managing.
+    let w:airline_disabled = 1
     let w:neomake_loclist_setup = 1
-    call Neomake_manage_loclists(a:bufnr)
+    call s:neomake_manage_loclists(a:bufnr)
   endfunction
 
-  function! Neomake_setup_ide()
+  function! s:neomake_setup_ide()
     let l:bufnr = bufnr('%')
     if has_key(s:neomake_buffers, l:bufnr)
       " Make sure the location list is opened or closed as necessary
-      call Neomake_manage_loclists(l:bufnr)
+      call s:neomake_manage_loclists(l:bufnr)
       return
     endif
 
-    let l:makers =  Neomake_get_makers(l:bufnr)
-    if len(l:makers)
+    let l:makers =  s:neomake_get_makers(l:bufnr)
+    if len(l:makers) > 0
       " This is a filetype with makers
       let s:neomake_buffers[l:bufnr] = {
             \ 'bufnr': l:bufnr,
-            \ 'file': Neomake_buffer_name('%'),
+            \ 'file': s:neomake_buffer_name('%'),
             \ 'force': 0,
             \ 'job_ids': [],
             \ 'makers': l:makers
@@ -677,25 +715,70 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
       " Make sure the sign column is always showing
       execute 'sign place 999999 line=1 name=neomake_invisible buffer='.l:bufnr
 
+      if get(g:, 'neomake_ide_loclist_management') == 3
+        " Make sure the location list is always showing
+        call setloclist(0, [{'bufnr': l:bufnr, 'text': "No errors"}], 'r')
+        silent! execute 'lwindow' get(g:, 'neomake_list_height', 10)
+              \ | lopen
+              \ | wincmd p
+      endif
+
+      " Disable airline in the window, see s:neomake_loclist_setup for more
+      " details.
+      let w:airline_disabled = 1
+
       " Run neomake on the initial load of the buffer to check for errors
       let b:lastchangedtick = -1
-      call Neomake_onchange(l:bufnr)
+      call s:neomake_onchange(l:bufnr)
 
-      autocmd s:neomake BufWinLeave <buffer>
-            \ silent! call Neomake_manage_loclists(expand('<abuf>'))
+      if get(g:, 'neomake_ide_loclist_management')
+        """"""""""""""""""""""""""""""""""""""""""""""""""""""""
+        " Window Creation Handling
+        """"""""""""""""""""""""""""""""""""""""""""""""""""""""
+        autocmd s:neomake WinEnter <buffer>
+              \ call s:neomake_loclist_setup(expand('<abuf>'))
 
-      autocmd s:neomake WinEnter <buffer>
-            \ silent! call Neomake_loclist_setup(expand('<abuf>'))
+        """"""""""""""""""""""""""""""""""""""""""""""""""""""""
+        " Window Close Handling
+        """"""""""""""""""""""""""""""""""""""""""""""""""""""""
+        " Closing a neomake buffer
+        autocmd s:neomake WinLeave <buffer>
+              \ if get(g:, 'neomake_ide_loclist_management') > 1
+              \ | let s:neomake_ide_wincount = winnr('$')
+              \ | endif
 
+        " Closing a location list buffer
+        autocmd s:neomake WinLeave *
+              \ if &buftype == 'quickfix'
+              \ | let s:neomake_ide_wincount = winnr('$')
+              \ | endif
+
+        autocmd s:neomake WinEnter *
+              \ if get(g:, 'neomake_ide_loclist_management') == 1
+              \ || get(s:, 'neomake_ide_wincount', winnr('$')) != winnr('$')
+              \ | call s:neomake_manage_loclists(expand('<abuf>'))
+              \ | endif
+            \ | unlet! s:neomake_ide_wincount
+
+        """"""""""""""""""""""""""""""""""""""""""""""""""""""""
+        " Buffer Close Handling
+        """"""""""""""""""""""""""""""""""""""""""""""""""""""""
+        autocmd s:neomake BufWinLeave <buffer>
+              \ call s:neomake_manage_loclists(expand('<abuf>'))
+      endif
+
+      """"""""""""""""""""""""""""""""""""""""""""""""""""""""
+      " Text Changed Handling
+      """"""""""""""""""""""""""""""""""""""""""""""""""""""""
       autocmd s:neomake TextChangedI,CursorHoldI <buffer>
-            \ silent! call Neomake_onchange(bufnr('%'))
+            \ call s:neomake_onchange(bufnr('%'))
 
       autocmd s:neomake TextChanged,InsertLeave,CursorHold <buffer>
-            \ silent! call Neomake_onchange(bufnr('%'), 1)
+            \ call s:neomake_onchange(bufnr('%'), 1)
     endif
   endfunction
 
-  function! Neomake_running(bufinfo)
+  function! s:neomake_running(bufinfo)
     " Check for manually initiated jobs
     let l:jobs = neomake#GetJobs()
     for jobinfo in values(l:jobs)
@@ -707,7 +790,7 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
     return 0
   endfunction
 
-  function! Neomake_onchange(bufnr, ...)
+  function! s:neomake_onchange(bufnr, ...)
     " Only run if the buffer has been modified
     if b:changedtick == b:lastchangedtick
       return
@@ -722,7 +805,7 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
     let l:bufinfo.force = l:bufinfo.force || get(a:, '1')
 
     " Only run neomake if there isn't already a job running for this buffer.
-    if Neomake_running(l:bufinfo)
+    if s:neomake_running(l:bufinfo)
       return
     endif
 
@@ -732,11 +815,11 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
       let l:updated = l:bufinfo.updated
       let l:elapsed = 1000 * str2float(reltimestr(reltime(l:updated, l:time)))
     else
-      let l:elapsed = g:neomake_updatetime
+      let l:elapsed = g:neomake_ide_updatetime
     endif
 
     " If enough time has passed since the last update or forcing an update.
-    if !l:bufinfo.force && l:elapsed < g:neomake_updatetime
+    if !l:bufinfo.force && l:elapsed < g:neomake_ide_updatetime
       return
     endif
     let l:bufinfo.force = 0
@@ -779,7 +862,7 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
     " Run neomake in file mode with the updated makers
     " Do not run silent incase of verbose output (g:neomake_verbose)
     let l:bufinfo.job_ids = neomake#Make(1,
-          \ l:bufinfo.makers, function('Neomake_job_completed'))
+          \ l:bufinfo.makers, function('s:neomake_job_completed'))
 
     " Edit the previous buffer (the original file)
     silent! execute 'edit' fnameescape(expand('#'))
@@ -788,7 +871,7 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
     silent! call winrestview(l:winstate)
   endfunction
 
-  function! Neomake_job_completed(info)
+  function! s:neomake_job_completed(info)
     " There are more jobs for this maker so wait for them to complete.
     if a:info.has_next
       return
@@ -799,7 +882,7 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
    let s:neomake_completed_bufnr = a:info.name + 0
   endfunction
 
-  function! Neomake_complete()
+  function! s:neomake_complete()
     " This completion is not from the IDE
     if !exists('s:neomake_completed_bufnr')
       return
@@ -812,30 +895,30 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
 
     " Clear out the list of job ids since they have all finished
     let l:bufinfo.job_ids = []
-    silent! call neomake#CleanOldFileSignsAndErrors(l:bufnr)
+    call neomake#CleanOldFileSignsAndErrors(l:bufnr)
 
     " Make sure the location list is opened or closed as necessary
-    call Neomake_manage_loclists(l:bufnr, getloclist(0))
+    call s:neomake_manage_loclists(l:bufnr, getloclist(0))
 
     let l:bufinfo = s:neomake_buffers[l:bufnr]
     if l:bufinfo.force
       " If there is a force update pending then go ahead and trigger it
-      call Neomake_onchange(l:bufnr, l:bufinfo.force)
+      call s:neomake_onchange(l:bufnr, l:bufinfo.force)
     endif
   endfunction
 
-  function! Neomake_remove(file)
+  function! s:neomake_remove(file)
     " Since this is called for every BufWipeout ensure it is a tracked buffer
     let l:bufnr = bufnr(a:file)
     let l:bufinfo = get(s:neomake_buffers, l:bufnr, {})
 
-    if len(l:bufinfo)
+    if len(l:bufinfo) > 0
       call delete(l:bufinfo.file)
       call remove(s:neomake_buffers, l:bufnr)
     endif
   endfunction
 
-  function! Neomake_remove_all()
+  function! s:neomake_remove_all()
     for bufinfo in keys(s:neomake_buffers)
       call delete(bufinfo.file)
     endfor
@@ -849,10 +932,10 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
   augroup END
 
   if get(g:, 'enable_neomake_ide')
-    autocmd s:neomake BufWinEnter * call Neomake_setup_ide()
-    autocmd s:neomake User NeomakeFinished nested call Neomake_complete()
-    autocmd s:neomake VimLeavePre * call Neomake_remove_all()
-    autocmd s:neomake BufWipeout * call Neomake_remove('<afile>')
+    autocmd s:neomake BufWinEnter * call s:neomake_setup_ide()
+    autocmd s:neomake User NeomakeFinished nested call s:neomake_complete()
+    autocmd s:neomake VimLeavePre * call s:neomake_remove_all()
+    autocmd s:neomake BufWipeout * call s:neomake_remove('<afile>')
   endif
 endif
 
