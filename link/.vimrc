@@ -250,7 +250,7 @@ endfunction
 function! s:unlet(...)
   let l:prefix = a:1
   for var in a:2
-    let l:varname = 'w:neomake_loclist_'.var
+    let l:varname = l:prefix.var
     if exists(l:varname)
       execute 'unlet' l:varname
     endif
@@ -487,14 +487,20 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
 
   " neomake defaults for quickfix/location list management
   let g:neomake_open_list = 0
-  let g:neomake_list_height = 10
+  let g:neomake_list_height = 5
 
   " For debugging
-" let g:neomake_verbose = 3
+  "let g:neomake_verbose = 3
 
+  " Constants
   let s:neomake_msg_noerr = "No errors"
+  lockvar s:neomake_msg_noerr
+
   let s:neomake_msg_linting = "Linting..."
+  lockvar s:neomake_msg_linting
+
   let s:neomake_msgs = [s:neomake_msg_noerr, s:neomake_msg_linting]
+  lockvar s:neomake_msgs
 
   let s:neomake_buffers = {}
   function! s:neomake_buffer_name(basename)
@@ -1027,8 +1033,8 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
     if get(g:, 'neomake_ide_quickfix_management') == 2
       " Make sure the quickfix window is always showing
       call setqflist([{'bufnr': 1, 'text': s:neomake_msg_noerr}], 'r')
-      silent! execute 'cwindow' get(g:, 'neomake_list_height', 10)
-            \ | copen
+      silent! execute 'botright cwindow' get(g:, 'neomake_list_height', 10)
+            \ | execute 'botright copen' get(g:, 'neomake_list_height', 10)
             \ | wincmd p
     endif
   endif
