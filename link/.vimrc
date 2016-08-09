@@ -143,7 +143,7 @@ autocmd vimrc InsertLeave * :set relativenumber
 """"""""""""""""""""""""
 " USER INTERFACE
 """"""""""""""""""""""""
-set nosplitbelow " New split goes top
+set splitbelow " New split goes bottom
 set splitright " New split goes right
 set hidden " When a buffer is brought to foreground, remember undo history and marks.
 set report=0 " Show all changes.
@@ -472,12 +472,18 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
   " which can be distracting.
   let g:neomake_ide_updatetime = 3000
 
-  " What type of automatic location list management to use:
+  " Automatic location list management (use location list for file mode)
   " 0: No automatic management
   " 1: 'Smart' management (open/close single location list below current window)
   " 2: 'Smart' management (open/close all location lists below corresponding window)
   " 3: 'Smart' management + always open location list
-  let g:neomake_ide_loclist_management = 1
+  let g:neomake_ide_loclist_management = 0
+
+  " Automatic quickfix list management (use location list for file mode)
+  " 0: No automatic management
+  " 1: Open/close quickfix list
+  " 2: Always open quickfix list
+  let g:neomake_ide_quickfix_management = 2
 
   " neomake defaults for quickfix/location list management
   let g:neomake_open_list = 0
@@ -485,6 +491,10 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
 
   " For debugging
 " let g:neomake_verbose = 3
+
+  let s:neomake_msg_noerr = "No errors"
+  let s:neomake_msg_linting = "Linting..."
+  let s:neomake_msgs = [s:neomake_msg_noerr, s:neomake_msg_linting]
 
   let s:neomake_buffers = {}
   function! s:neomake_buffer_name(basename)
@@ -530,6 +540,11 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
             " The neomake job was executed on the temp buffer, so fix up
             " the location list entry to point to the real buffer.
             let a:entry.bufnr = self.obufnr
+
+            " If no error type is provided default to error
+            if !exists('a:entry.type') || empty(a:entry.type)
+              let a:entry.type = 'E'
+            endif
           endfunction
 
           let l:maker.name = l:full_maker_name
@@ -543,6 +558,66 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
     return l:makers
   endfunction
 
+  function! s:neomake_quickfix_clear(bufnr)
+    if !get(g:, 'neomake_ide_quickfix_management')
+      return
+    endif
+
+    let l:updated = [{'bufnr': 1, 'text': s:neomake_msg_linting}]
+    let l:qflist = getqflist()
+    for entry in l:qflist
+      if entry.bufnr != a:bufnr && index(s:neomake_msgs, entry.text) < 0
+        call add(l:updated, entry)
+      endif
+    endfor
+    call setqflist(l:updated, 'r')
+
+    call s:neomake_manage_quickfix(a:bufnr)
+  endfunction
+
+  function! s:neomake_manage_quickfix(bufnr, ...)
+    if !get(g:, 'neomake_ide_quickfix_management')
+      return
+    endif
+
+    let l:bufinfo = get(s:neomake_buffers, a:bufnr, {})
+    if empty(l:bufinfo)
+      return
+    endif
+
+    let l:updated = []
+    let l:qflist = getqflist()
+    let l:buflist = tabpagebuflist()
+    for entry in l:qflist
+      if entry.bufnr != a:bufnr
+            \ && index(l:buflist, entry.bufnr) >= 0
+            \ && index(s:neomake_msgs, entry.text) < 0
+        call add(l:updated, entry)
+      endif
+    endfor
+
+    let l:leave = get(a:, '1')
+    if !l:leave
+      let l:updated = extend(l:updated, l:bufinfo.qflist)
+    endif
+
+    if empty(l:updated)
+      let l:updated = [{'bufnr': 1, 'text': s:neomake_msg_noerr}]
+    endif
+    call setqflist(l:updated, 'r')
+
+    let l:winnr = winnr()
+    if get(g:, 'neomake_ide_quickfix_management') < 2
+      execute 'botright cwindow' get(g:, 'neomake_list_height', 10)
+    else
+      execute 'botright copen' get(g:, 'neomake_list_height', 10)
+    endif
+
+    if l:winnr != winnr()
+      wincmd p
+    endif
+  endfunction
+
   " The reason the location list management is setup the way it is has to do
   " with the difficulty of window management with (neo)vim. Once that issue is
   " addressed this can be revisited:
@@ -553,36 +628,19 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
       return
     endif
 
-    if !has_key(s:neomake_buffers, a:bufnr)
-      call neomake#utils#DebugMessage("IDE: not a recognized neomake buffer")
+    let l:bufinfo = get(s:neomake_buffers, a:bufnr, {})
+    if empty(l:bufinfo)
       return
     endif
 
     if exists('s:neomake_managing_loclists')
-      call neomake#utils#DebugMessage("IDE: already managing location lists")
+      call neomake#utils#ErrorMessage("IDE: already managing location lists")
       return
     endif
 
     let w:neomake_loclist_winnr = 1
-    if a:0
-      " Use the passed in location list if specified
-      let l:loclist = a:1
-    else
-      " Otherwise find the first location list associated with the specified
-      " buffer
-      let l:loclist = []
-      let l:tabwinnr = s:bufallwinnr(a:bufnr, tabpagenr())
-      for [tabnr, winnr] in l:tabwinnr
-        let l:loclist = getloclist(winnr)
-        if len(l:loclist) > 0
-          call neomake#utils#DebugMessage("IDE: found non-empty location list in window ".winnr)
-          break
-        endif
-      endfor
-    endif
-
     let s:neomake_managing_loclists = 1
-    call s:neomake_windo('s:neomake_loclist_set', a:bufnr, l:loclist)
+    call s:neomake_windo('s:neomake_loclist_set', a:bufnr, l:bufinfo.qflist)
     call s:repeat_while_true('s:neomake_windo', 's:neomake_loclist_close')
     call s:repeat_while_true('s:neomake_windo', 's:neomake_loclist_open')
     let l:winnr =  s:neomake_windo('s:find_window', 'w:neomake_loclist_winnr')
@@ -629,7 +687,6 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
     let l:bufnr = get(a:, '1')
     let l:loclist = get(a:, '2', [])
     if l:bufnr == bufnr('%')
-      call neomake#utils#DebugMessage("IDE: setting location list for bufnr: ".l:bufnr." winnr: ".winnr())
       call setloclist(0, l:loclist, 'r')
     endif
   endfunction
@@ -638,7 +695,6 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
     let l:empty_only = get(a:, '1')
     if !exists('w:neomake_loclist_closed')
           \ && (!l:empty_only || len(getloclist(0)) == 0)
-      call neomake#utils#DebugMessage("IDE: closing the location list for bufnr: ".bufnr('%')." winnr: ".winnr())
       let w:neomake_loclist_closed = 1
 
       lclose
@@ -663,11 +719,10 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
     let l:open_always = (l:manage == 3)
 
     if (l:open_current || l:open_nonempty || l:open_always) && !exists('w:neomake_loclist_opened')
-      call neomake#utils#DebugMessage("IDE: opening the location list for bufnr: ".bufnr('%')." winnr: ".winnr())
       let w:neomake_loclist_opened = 1
 
       if l:length == 0
-        call setloclist(0, [{'bufnr': bufnr('%'), 'text': "No errors"}], 'r')
+        call setloclist(0, [{'bufnr': bufnr('%'), 'text': s:neomake_msg_noerr}], 'r')
         silent! execute 'lwindow' get(g:, 'neomake_list_height', 10)
       endif
 
@@ -693,10 +748,15 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
     call s:neomake_manage_loclists(a:bufnr)
   endfunction
 
+  function! <sid>neomake_window_moved()
+    call s:neomake_manage_loclists(bufnr('%'))
+  endfunction
+
   function! s:neomake_setup_ide()
     let l:bufnr = bufnr('%')
     if has_key(s:neomake_buffers, l:bufnr)
       " Make sure the location list is opened or closed as necessary
+      call s:neomake_manage_quickfix(l:bufnr)
       call s:neomake_manage_loclists(l:bufnr)
       return
     endif
@@ -709,7 +769,8 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
             \ 'file': s:neomake_buffer_name('%'),
             \ 'force': 0,
             \ 'job_ids': [],
-            \ 'makers': l:makers
+            \ 'makers': l:makers,
+            \ 'qflist': []
             \ }
 
       " Make sure the sign column is always showing
@@ -717,7 +778,7 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
 
       if get(g:, 'neomake_ide_loclist_management') == 3
         " Make sure the location list is always showing
-        call setloclist(0, [{'bufnr': l:bufnr, 'text': "No errors"}], 'r')
+        call setloclist(0, [{'bufnr': l:bufnr, 'text': s:neomake_msg_noerr}], 'r')
         silent! execute 'lwindow' get(g:, 'neomake_list_height', 10)
               \ | lopen
               \ | wincmd p
@@ -759,12 +820,16 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
               \ | call s:neomake_manage_loclists(expand('<abuf>'))
               \ | endif
             \ | unlet! s:neomake_ide_wincount
+      endif
 
+      if get(g:, 'neomake_ide_loclist_management')
+            \ || get(g:, 'neomake_ide_quickfix_management')
         """"""""""""""""""""""""""""""""""""""""""""""""""""""""
         " Buffer Close Handling
         """"""""""""""""""""""""""""""""""""""""""""""""""""""""
         autocmd s:neomake BufWinLeave <buffer>
-              \ call s:neomake_manage_loclists(expand('<abuf>'))
+              \ call s:neomake_manage_quickfix(expand('<abuf>'), 1)
+              \ | call s:neomake_manage_loclists(expand('<abuf>'))
       endif
 
       """"""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -848,8 +913,10 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
     " Store off current state
     let l:winstate = winsaveview()
 
-    " Remove all signs on the current buffer
+    " Clear previous state
+    call s:neomake_quickfix_clear(a:bufnr)
     call neomake#signs#ResetFile(a:bufnr)
+    call neomake#statusline#ResetCountsForBuf(a:bufnr)
 
     " Write the temporary file and open it
     let l:tmpfile = l:bufinfo.file
@@ -893,14 +960,19 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
     let l:bufinfo = s:neomake_buffers[l:bufnr]
     unlet s:neomake_completed_bufnr
 
+    " Set the quickfix/location list
+    let l:bufinfo.qflist = getloclist(0)
+
     " Clear out the list of job ids since they have all finished
     let l:bufinfo.job_ids = []
     call neomake#CleanOldFileSignsAndErrors(l:bufnr)
 
     " Make sure the location list is opened or closed as necessary
-    call s:neomake_manage_loclists(l:bufnr, getloclist(0))
+    call s:neomake_manage_loclists(l:bufnr)
 
-    let l:bufinfo = s:neomake_buffers[l:bufnr]
+    " Make sure the quickfix list is opened or closed as necessary
+    call s:neomake_manage_quickfix(l:bufnr)
+
     if l:bufinfo.force
       " If there is a force update pending then go ahead and trigger it
       call s:neomake_onchange(l:bufnr, l:bufinfo.force)
@@ -932,10 +1004,33 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
   augroup END
 
   if get(g:, 'enable_neomake_ide')
+    " Map all the window moving commands to also call window moved
+    nnoremap <silent> <C-W>r :wincmd r<CR> :call <sid>neomake_window_moved()<CR>
+    nnoremap <silent> <C-W>R :wincmd R<CR> :call <sid>neomake_window_moved()<CR>
+    nnoremap <silent> <C-W><C-R> :wincmd R<CR> :call <sid>neomake_window_moved()<CR>
+
+    nnoremap <silent> <C-W>x :wincmd x<CR> :call <sid>neomake_window_moved()<CR>
+    nnoremap <silent> <C-W><C-X> :wincmd X<CR> :call <sid>neomake_window_moved()<CR>
+
+    nnoremap <silent> <C-W>J :wincmd J<CR> :call <sid>neomake_window_moved()<CR>
+    nnoremap <silent> <C-W>K :wincmd K<CR> :call <sid>neomake_window_moved()<CR>
+    nnoremap <silent> <C-W>L :wincmd L<CR> :call <sid>neomake_window_moved()<CR>
+    nnoremap <silent> <C-W>H :wincmd H<CR> :call <sid>neomake_window_moved()<CR>
+
+    " Auto commands for managing the IDE
     autocmd s:neomake BufWinEnter * call s:neomake_setup_ide()
     autocmd s:neomake User NeomakeFinished nested call s:neomake_complete()
     autocmd s:neomake VimLeavePre * call s:neomake_remove_all()
     autocmd s:neomake BufWipeout * call s:neomake_remove('<afile>')
+
+    " If the quickfix list should be shown
+    if get(g:, 'neomake_ide_quickfix_management') == 2
+      " Make sure the quickfix window is always showing
+      call setqflist([{'bufnr': 1, 'text': s:neomake_msg_noerr}], 'r')
+      silent! execute 'cwindow' get(g:, 'neomake_list_height', 10)
+            \ | copen
+            \ | wincmd p
+    endif
   endif
 endif
 
