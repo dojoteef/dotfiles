@@ -1,0 +1,13 @@
+tap 'homebrew/core'
+brew 'cmake'
+brew 'coreutils'
+brew 'ctags' # Consider universal-ctags when a stable release is available https://ctags.io
+brew 'git'
+brew 'git-extras'
+brew 'go'
+brew 'hub'
+brew 'luajit'
+brew 'perl'
+brew 'python'
+brew 'python3'
+brew 'ruby'

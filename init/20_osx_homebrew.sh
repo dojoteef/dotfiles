@@ -14,59 +14,55 @@ e_header "Updating Homebrew"
 brew doctor
 brew update
 
-# Functions used in subsequent init scripts.
+brew bundle --file=$DOTFILES/conf/osx/brew/core check &> /dev/null
+if [[ $? -ne 0 ]]; then
+  e_header "Installing core requirements"
+  brew bundle --file=$DOTFILES/conf/osx/brew/core
+fi
 
-# Homebrew kegs.
-function brew_tap_kegs() {
-  kegs=($(setdiff "${kegs[*]}" "$(brew tap)"))
-  if (( ${#kegs[@]} > 0 )); then
-    e_header "Tapping Homebrew kegs: ${kegs[*]}"
-    for keg in "${kegs[@]}"; do
-      brew tap $keg
-    done
+brew bundle --file=$DOTFILES/conf/osx/brew/devel check &> /dev/null
+if [[ $? -ne 0 ]]; then
+  [[ $ACCEPT_DEFAULTS ]] && install_devel="Y" || read -n 1 -p "Install development tools? [Y/n] " install_devel; echo
+  if [[ ! "$install_devel" =~ [Nn] ]]; then
+    brew bundle --file=$DOTFILES/conf/osx/brew/devel
   fi
-}
+fi
 
-function brew_has_tap {
-  if [[ "$(type -P brew)" ]]; then
-    local tap="$1"
-    [[ "$(brew tap 2>/dev/null | grep -w "$tap")" ]] || return 1
+brew bundle --file=$DOTFILES/conf/osx/brew/casks check &> /dev/null
+if [[ $? -ne 0 ]]; then
+  [[ $ACCEPT_DEFAULTS ]] && install_casks="Y" || read -n 1 -p "Install casks? [Y/n] " install_casks; echo
+  if [[ ! "$install_casks" =~ [Nn] ]]; then
+    brew bundle --file=$DOTFILES/conf/osx/brew/casks
   fi
-}
+fi
 
-# Homebrew recipes.
-function brew_install_recipes() {
-  recipes=($(setdiff "${recipes[*]}" "$(brew list)"))
-  if (( ${#recipes[@]} > 0 )); then
-    e_header "Installing Homebrew recipes: ${recipes[*]}"
-    for recipe in "${recipes[@]}"; do
-      brew install $recipe
-    done
+brew bundle --file=$DOTFILES/conf/osx/brew/completions check &> /dev/null
+if [[ $? -ne 0 ]]; then
+  [[ $ACCEPT_DEFAULTS ]] && install_completions="Y" || read -n 1 -p "Install completions? [Y/n] " install_completions; echo
+  if [[ ! "$install_completions" =~ [Nn] ]]; then
+    brew bundle --file=$DOTFILES/conf/osx/brew/completions
   fi
-}
+fi
 
-function brew_has_recipe {
-  if [[ "$(type -P brew)" ]]; then
-    local recipe="$1"
-    [[ "$(brew list 2>/dev/null | grep -w "$recipe")" ]] || return 1
-  fi
-}
+# Misc cleanup!
 
-# Homebrew casks.
-function brew_install_casks() {
-  casks=($(setdiff "${casks[*]}" "$(brew cask list 2>/dev/null)"))
-  if (( ${#casks[@]} > 0 )); then
-    e_header "Installing Homebrew casks: ${casks[*]}"
-    for cask in "${casks[@]}"; do
-      brew cask install $cask
-    done
-    brew cask cleanup
-  fi
-}
+# This is where brew stores its binary symlinks
+local binroot="$(brew --config | awk '/HOMEBREW_PREFIX/ {print $2}')"/bin
 
-function brew_has_cask {
-  if [[ "$(type -P brew)" ]]; then
-    local cask="$1"
-    [[ "$(brew cask list 2>/dev/null | grep -w "$cask")" ]] || return 1
-  fi
-}
+# htop
+if [[ "$(type -P $binroot/htop)" ]] && [[ "$(stat -L -f "%Su:%Sg" "$binroot/htop")" != "root:wheel" || ! "$(($(stat -L -f "%DMp" "$binroot/htop") & 4))" ]]; then
+  e_header "Updating htop permissions"
+  sudo chown root:wheel "$binroot/htop"
+  sudo chmod u+s "$binroot/htop"
+fi
+
+# bash
+if [[ "$(type -P $binroot/bash)" ]] && [[ "$(cat /etc/shells | grep -w "$binroot/bash")" ]]; then
+  e_header "Adding $binroot/bash to the list of acceptable shells"
+  echo "$binroot/bash" | sudo tee -a /etc/shells >/dev/null
+fi
+if [[ "$(dscl . -read ~ UserShell | awk '{print $2}')" != "$binroot/bash" ]]; then
+  e_header "Making $binroot/bash your default shell"
+  sudo chsh -s "$binroot/bash" "$USER" >/dev/null 2>&1
+  e_arrow "Please exit and restart all your shells."
+fi

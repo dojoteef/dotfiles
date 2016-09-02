@@ -1,0 +1,6 @@
+tap 'caskroom/cask'
+cask 'alfred'
+cask 'charles'
+cask 'google-chrome'
+cask 'iterm2'
+cask 'suspicious-package'

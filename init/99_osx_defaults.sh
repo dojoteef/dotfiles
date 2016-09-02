@@ -59,6 +59,8 @@ find $theme_dir -iname '*.itermcolors' -print0 | while read -d $'\0' theme; do
   fi
 done
 
+nerd_font="$(osx_list_nerd_fonts | head -n 1)"
+
 #######################
 # Terminal
 #######################
@@ -72,9 +74,8 @@ defaults write com.apple.terminal StringEncodings -array 4
 defaults write com.apple.terminal SecureKeyboardEntry -bool true
 
 echo "Setting default theme to Zenburn"
-if brew_has_cask "font-inconsolata-for-powerline"; then
-  # Font size 13 with height spacing of 0.88 seems to look best with Powerline fonts
-  $DOTFILES/bin/osx_terminal_theme Zenburn -d $theme_dir/terminal -D Zenburn -f "Inconsolata for Powerline" -s 13 -h 0.88
+if [[ "$nerd_font" ]]; then
+  $DOTFILES/bin/osx_terminal_theme Zenburn -d $theme_dir/terminal -D Zenburn -f "$nerd_font" -s 12
 else
   $DOTFILES/bin/osx_terminal_theme Zenburn -d $theme_dir/terminal -D Zenburn
 fi
@@ -85,22 +86,27 @@ fi
 if open -Ra iterm &> /dev/null; then
   e_header "Setting iTerm preferences"
 
+  OLD_DOTVARS=$DOTVARS
+  DOTVARS=("profile" "fontname" "fontsize")
+  if [[ "$nerd_font" ]]; then
+    DOTFONTSIZE=12
+    DOTFONTNAME="$nerd_font"
+    DOTPROFILE="Dotfiles"
+  else
+    DOTFONTSIZE=14
+    DOTFONTNAME="Osaka-Mono"
+    DOTPROFILE="Dotfiles"
+  fi
+
   # Use a preset profile
   iterm_domain="com.googlecode.iterm2"
   iterm_conf_dir="$DOTFILES/conf/osx/iterm"
   preferences_dir="$HOME/Library/Preferences"
   iterm_profile_dir="$HOME/Library/Application Support/iTerm2/DynamicProfiles"
   if [[ -d "$iterm_profile_dir" ]]; then
-    ln -sf "$iterm_conf_dir/profile.json" "$iterm_profile_dir/profile.json"
+    rm -f "$iterm_profile_dir/profile.json" &> /dev/null
+    dot_substitute "$iterm_conf_dir/profile.json" "$iterm_profile_dir/profile.json"
     jq -s '.[0].Profiles[0] * .[1] | {"Profiles": [.]}' "$iterm_conf_dir/colors.json" "$theme_json_dir/Zenburn.json" > "$iterm_profile_dir/colors.json"
-  fi
-
-  OLD_DOTVARS=$DOTVARS
-  DOTVARS=("profile")
-  if brew_has_cask "font-inconsolata-for-powerline"; then
-    DOTPROFILE="PowerlineFonts"
-  else
-    DOTPROFILE="StandardFonts"
   fi
 
   echo "Setting $DOTPROFILE as default profile for $iterm_domain"
@@ -416,7 +422,7 @@ fi
 
 e_arrow "To apply all settings you must exit the following applications: \
   $(join_strings "\n   " "${affected_apps[@]}")"
-read -n 1 -p "Close affected applications [y/N] " kill_affected; echo
+[[ $ACCEPT_DEFAULTS ]] && kill_affected='N' || read -n 1 -p "Close affected applications [y/N] " kill_affected; echo
 
 if [[ "$kill_affected" =~ [Yy] ]]; then
   for app in ${affected_apps[@]}; do

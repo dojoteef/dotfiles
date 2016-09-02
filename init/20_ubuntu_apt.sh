@@ -7,10 +7,12 @@ sudo apt-get -qq update
 sudo apt-get -qq dist-upgrade
 
 # Install APT packages.
+# Consider universal-ctags when a stable release is available https://ctags.io
 packages=(
   bash-completion
   build-essential
   cmake
+  exuberant-ctags
   figlet
   git
   git-extras

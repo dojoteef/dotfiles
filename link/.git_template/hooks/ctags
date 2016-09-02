@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+
+trap 'errexit' ERR
+set +o errexit
+set -o errtrace
+
+# empty tree obj
+empty_tree="$(git hash-object -t tree /dev/null)"
+
+dir="$(git rev-parse --git-dir)"
+rev="$(git rev-parse HEAD 2> /dev/null)"
+
+# there is no hash for HEAD so must be an empty tree
+if [[ "$rev" == "HEAD" ]]; then
+  rev="$empty_tree"
+fi
+
+if [[ -r "$dir/tags.last" ]]; then
+  read last < "$dir/tags.last"
+else
+  last="$empty_tree"
+fi
+tagfile=$(mktemp "git-update-tags.XXXXXXXX")
+
+function gather_files()
+{
+  while read -r dstatus filename; do
+    case $dstatus in
+      A|M|T|X|D|R*) 
+        files+=($filename)
+        ;;
+      *) 
+        ;;
+    esac
+  done < <(git diff --name-status "$1")
+}
+
+function handle_diff()
+{
+  local files=()
+
+  # First gather files between last and HEAD revision
+  files+=($(gather_files "$last..$rev"))
+
+  # Then add staged files
+  files+=($(gather_files "--cached"))
+
+  ctags_update -o "$tagfile" "${files[@]}"
+}
+
+function initial_tags()
+{
+  git ls-files | ctags -L - -o "$tagfile" && mv "$tagfile" "$dir/tags"
+  echo $rev > "$dir/tags.last"
+  exit 0
+}
+
+function on_exit()
+{
+  rm -f "$tagfile"
+}
+
+trap 'on_exit>&2' EXIT INT TERM
+exec 2> >(logger -t "githook.ctagsupdate[$$]") || true
+
+[ -f "$dir/tags" ] && cp "$dir/tags" "$tagfile" || initial_tags
+handle_diff && mv -v "$tagfile" "$dir/tags"
+echo $rev > "$dir/tags.last"

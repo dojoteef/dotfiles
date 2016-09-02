@@ -25,6 +25,8 @@
   added = yellow
   changed = green
   untracked = cyan
+[init]
+  templatedir = ~/.git_template
 [merge]
   log = true
 [rerere]
@@ -32,3 +34,5 @@
 [url "git@github.com:"]
   pushInsteadOf = "github:"
   pushInsteadOf = "git://github.com/"
+[alias]
+  ctags = "!sh -c '[ -f .git/hooks/ctags ] || git init; .git/hooks/ctags' git-ctags"

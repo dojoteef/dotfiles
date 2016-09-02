@@ -70,7 +70,7 @@ function dot_substitute() {
       # Finally add the sed replacement
       cmd="${cmd} -e 's/\${"$var"}/${subst}/'"
     done
-    cmd="${cmd} ${src} > ${dest}"
+    cmd="${cmd} \"${src}\" > \"${dest}\""
   fi
 
   if [[ ${priv} ]]; then
@@ -211,6 +211,32 @@ function setdiff() {
   done
   [[ "$1" ]] && echo "${setdiffC[@]}"
 }
+
+# An error trace function that can be used with a trap
+# Example usage in a bash script:
+#
+# trap 'errexit' ERR
+# set -o errtrace
+function errexit() {
+  local err=$?
+  set +o xtrace
+  local code="${1:-1}"
+  echo "Error in ${BASH_SOURCE[1]}:${BASH_LINENO[0]}. '${BASH_COMMAND}' exited with status $err"
+  # Print out the stack trace described by $function_stack  
+  if [ ${#FUNCNAME[@]} -gt 2 ]
+  then
+    echo "Call tree:"
+    for ((i=1;i<${#FUNCNAME[@]};i++))
+    do
+      echo " $i: ${BASH_SOURCE[$i+1]}:${BASH_LINENO[$i]} ${FUNCNAME[$i]}(...)"
+    done
+  fi
+  echo "Exiting with status ${code}"
+  exit "${code}"
+}
+
+# Make the errexit function available to subshells
+export -f errexit
 
 # If this file was being sourced, exit now.
 [[ "$1" == "source" ]] && return
@@ -388,6 +414,12 @@ if [[ "$new_dotfiles_install" == "" ]] && [[ "$TERM_PROGRAM" == "iTerm.app" ]]; 
     exit
   fi
 fi
+
+e_header "The script will prompt you to select certain options" \
+  "if desired you can simply accept the defaults for all the options."
+  read -n 1 -p   "Accept defaults? [y/N] " accept_defaults; echo
+  [[ "$accept_defaults" =~ [Yy] ]] && ACCEPT_DEFAULTS=1 || ACCEPT_DEFAULTS=
+
 
 # Add binaries into the path
 [[ -d $DOTFILES/bin ]] && PATH=$DOTFILES/bin:$PATH

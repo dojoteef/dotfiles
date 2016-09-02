@@ -15,13 +15,10 @@ if is_osx; then
   # Exit if Homebrew is not installed.
   [[ ! "$(type -P brew)" ]] && e_error "Brew recipes need Homebrew to install." && return 1
 
-  # Ensure the neovim keg has been tapped
-  kegs=(neovim/neovim)
-  brew_tap_kegs
-
-  # Now install neovim
-  recipes=(neovim)
-  brew_install_recipes
+  brew bundle --file=$DOTFILES/conf/osx/brew/neovim check &> /dev/null
+  if [[ $? -ne 0 ]]; then
+    brew bundle --file=$DOTFILES/conf/osx/brew/neovim
+  fi
 else
   # Add the Personal Package Archive for neovim
   sudo apt-get -qq install software-properties-common

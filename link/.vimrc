@@ -60,17 +60,34 @@ else
         \ | Plug 'vim-airline/vim-airline-themes'
 endif
 
-" Syntax
+" VCS
 Plug 'mhinz/vim-signify'
+Plug 'tpope/vim-fugitive'
+Plug 'airblade/vim-rooter'
+
+" Syntax
 Plug 'neomake/neomake'
 Plug 'sheerun/vim-polyglot'
+Plug 'Yggdroot/indentLine'
 
-" Formatting
+" Tags
+if executable('ctags')
+  Plug 'ludovicchabant/vim-gutentags'
+  Plug 'majutsushi/tagbar'
+endif
+
+" Completions
 if executable('go')
-  Plug 'fatih/vim-go'
+  Plug 'fatih/vim-go', { 'for': 'go' }
 endif
 Plug 'SirVer/ultisnips' | Plug 'honza/vim-snippets'
 Plug 'Valloric/YouCompleteMe', { 'do': b:ycm_install_cmd }
+      \ | Plug 'rdnetto/YCM-Generator', { 'branch': 'stable'}
+
+" Search & Navigation
+Plug 'osyo-manga/vim-over'
+Plug 'haya14busa/incsearch.vim' | Plug 'haya14busa/incsearch-fuzzy.vim'
+Plug 'easymotion/vim-easymotion' | Plug 'haya14busa/incsearch-easymotion.vim'
 
 " File Explorer
 if executable('fzf')
@@ -84,11 +101,21 @@ Plug 'tmux-plugins/vim-tmux'
 Plug 'christoomey/vim-tmux-navigator'
 
 " Misc
+Plug 'mbbill/undotree'
+Plug 'junegunn/vim-peekaboo'
+Plug 'junegunn/vim-easy-align'
+Plug 'scrooloose/nerdcommenter'
 Plug 'terryma/vim-multiple-cursors'
 Plug 'tpope/vim-sensible'
 Plug 'tpope/vim-surround'
 Plug 'tpope/vim-repeat'
 Plug 'tpope/vim-commentary'
+
+" Dev icons (must be last)
+" https://github.com/ryanoasis/vim-devicons#step-3-configure-vim
+if !empty($NERD_FONT)
+  Plug 'ryanoasis/vim-devicons'
+endif
 call plug#end()
 
 """"""""""""""""""""""""
@@ -97,7 +124,11 @@ call plug#end()
 " Local dirs
 set backupdir=$DOTFILES/caches/vim
 set directory=$DOTFILES/caches/vim
-set undodir=$DOTFILES/caches/vim
+
+if has("persistent_undo")
+  set undodir=$DOTFILES/caches/vim
+  set undofile
+endif
 
 " Create vimrc autocmd group and remove any existing vimrc autocmds,
 " in case .vimrc is re-sourced.
@@ -191,7 +222,7 @@ noremap <silent> <leader>pp :set invpaste paste?<CR>
 nnoremap <silent> <leader>/ :nohlsearch<CR>
 
 " Allow saving of files as sudo when I forgot to start vim using sudo.
-cmap w!! w !sudo tee > /dev/null %
+cnoremap w!! w !sudo tee > /dev/null %
 
 """"""""""""""""""""""""
 " FILE TYPES
@@ -202,7 +233,6 @@ autocmd vimrc BufRead,BufNewFile *.tmpl set filetype=html
 
 " Ignore things
 set wildignore+=*.jpg,*.jpeg,*.gif,*.png,*.gif,*.psd,*.o,*.obj
-set wildignore+=*/.git/*,*/.hg/*,*/.svn/*
 
 """"""""""""""""""""""""
 " GENERAL FUNCTIONS
@@ -281,10 +311,10 @@ if executable('ag')
   set grepprg=ag\ --nogroup\ --nocolor
 
   " bind k to grep word under cursor
-  noremap <leader>k :grep! "\b<C-R><C-W>\b"<CR>:cw<CR>
+  noremap <leader>k :lgrep! "\b<C-R><C-W>\b"<CR>:lwindow<CR>
 
   " New command :Ag which takes standard ag arguments
-  command! -nargs=+ -complete=file -bar Ag silent! grep! <args>|cwindow|redraw!
+  command! -nargs=+ -complete=file -bar Ag silent! lgrep! <args>|lwindow|redraw!
 endif
 
 "/////////////////////"
@@ -299,6 +329,9 @@ endif
 " Airline "
 "/////////"
 if isdirectory(expand(b:plugin_directory . '/vim-airline'))
+  " Let other plugins know vim-airline is installed
+  let g:airline_installed = 1
+
   " See https://github.com/vim-airline/vim-airline/issues/1125
   let g:airline_exclude_preview = 1
 
@@ -316,7 +349,7 @@ if isdirectory(expand(b:plugin_directory . '/vim-airline'))
   let g:airline#extensions#tabline#formatter = 'unique_tail_improved'
   let g:airline#extensions#tabline#ignore_bufadd_pat = '\c\vnerd_tree'
 
-  let g:airline_powerline_fonts = 1
+  let g:airline_powerline_fonts = !empty($POWERLINE_FONT)
   if !exists('g:airline_symbols')
     let g:airline_symbols = {}
   endif
@@ -417,7 +450,8 @@ if isdirectory(expand(b:plugin_directory . '/nerdtree'))
         \ 'Clean' : '✔︎',
         \ 'Unknown' : '?'
         \}
-  map <leader>n :NERDTreeToggle<CR>
+  noremap <leader>n :NERDTreeToggle<CR>
+  noremap <leader>f :NERDTreeFind<CR>
   autocmd vimrc StdinReadPre * let s:std_in=1
   " If no file or directory arguments are specified, open NERDtree.
   " If a directory is specified as the only argument, open it in NERDTree.
@@ -431,6 +465,13 @@ if isdirectory(expand(b:plugin_directory . '/nerdtree'))
     end
   endfunction
   autocmd vimrc VimEnter * call NERDTreeAutoOpen()
+endif
+
+"/////////"
+" Tagbar
+"/////////"
+if isdirectory(expand(b:plugin_directory . '/tagbar'))
+  nnoremap <leader>t :TagbarToggle<CR>
 endif
 
 "/////////"
@@ -795,7 +836,6 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
       let w:airline_disabled = 1
 
       " Run neomake on the initial load of the buffer to check for errors
-      let b:lastchangedtick = -1
       call s:neomake_onchange(l:bufnr)
 
       if get(g:, 'neomake_ide_loclist_management')
@@ -863,7 +903,7 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
 
   function! s:neomake_onchange(bufnr, ...)
     " Only run if the buffer has been modified
-    if b:changedtick == b:lastchangedtick
+    if b:changedtick == get(b:, 'neomake_changedtick', -1)
       return
     endif
 
@@ -909,7 +949,7 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
     endfor
 
     " Update the time
-    let b:lastchangedtick = b:changedtick
+    let b:neomake_changedtick = b:changedtick
     let l:bufinfo.updated = l:time
 
     " Need the original filetype in order to set the new buffer to the
@@ -1075,4 +1115,69 @@ if isdirectory(expand(b:plugin_directory . '/vim-multiple-cursors'))
       call youcompleteme#EnableCursorMovedAutocommands()
     endif
   endfunction
+endif
+
+"///////////////"
+" vim-rooter "
+"///////////////"
+if isdirectory(expand(b:plugin_directory . '/vim-rooter'))
+  " Let other plugins know vim-rooter is installed
+  let g:rooter_installed = 1
+
+  let g:rooter_use_lcd = 1
+endif
+
+"///////////////"
+" vim-gutentags "
+"///////////////"
+if isdirectory(expand(b:plugin_directory . '/vim-gutentags'))
+  " For now always set the tags file to .git/tags
+  " Revisit this after the following issue is addressed:
+  " https://github.com/ludovicchabant/vim-gutentags/issues/93
+  let g:gutentags_tagfile='.git/tags'
+
+  if get(g:, 'airline_installed')
+    " Add vim-gutentags status
+    function! GutentagsStatus(...)
+      let w:airline_section_x = get(w:, 'airline_section_x', g:airline_section_x)
+      let w:airline_section_x .= g:airline_symbols.space . '%{gutentags#statusline()}'
+    endfunction
+    call airline#add_statusline_func('GutentagsStatus')
+  endif
+
+  " vim-gutentags expects a function which takes one parameter to it
+  " so wrap the vim-rooter function which does not take a path.
+  if get(g:, 'rooter_installed')
+    function! GutentagsProjectRoot(path)
+      return FindRootDirectory()
+    endfunction
+
+    let g:gutentags_project_root_finder='GutentagsProjectRoot'
+  endif
+
+  " Exuberant ctags has more limited tagging support than Universal ctags.
+  " Since Universal ctags does not have an initial release yet add support for
+  " additional languages using overrides as necessary.
+  if executable('gotags')
+    call add(g:gutentags_project_info, {'type': 'go', 'glob': '*.go'})
+    let g:gutentags_ctags_executable_go = 'gotags'
+  endif
+endif
+
+"//////////"
+" undotree "
+"//////////"
+if isdirectory(expand(b:plugin_directory . '/undotree'))
+  nnoremap <silent> <leader>u :UndotreeToggle<CR>
+endif
+
+"////////////////"
+" vim-easy-align "
+"////////////////"
+if isdirectory(expand(b:plugin_directory . '/vim-easy-align'))
+  " Start interactive EasyAlign in visual mode (e.g. vipga)
+  xnoremap ga <Plug>(EasyAlign)
+
+  " Start interactive EasyAlign for a motion/text object (e.g. gaip)
+  nnoremap ga <Plug>(EasyAlign)
 endif
