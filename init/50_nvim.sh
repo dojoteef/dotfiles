@@ -22,7 +22,7 @@ if is_osx; then
 else
   # Add the Personal Package Archive for neovim
   sudo apt-get -qq install software-properties-common
-  sudo add-apt-repository ppa:neovim-ppa/unstable
+  sudo add-apt-repository -y ppa:neovim-ppa/unstable
   sudo apt-get -qq update
 
   # Install it!
@@ -54,7 +54,11 @@ function fix_terminfo() {
   fi
 
   # First see what termios thinks erase is
-  termios_erase="$(stty -g | grep -w 'erase' | sed 's/.*[^a-z]erase=\([^:]\{1,\}\).*/0x\1/' | xargs printf %o)"
+  if is_osx; then
+    termios_erase="$(stty -g | grep -w 'erase' | sed 's/.*[^a-z]erase=\([^:]\{1,\}\).*/0x\1/' | xargs printf %o)"
+  else
+    termios_erase="$(stty -g | awk -F ':' '{print "0x"$7}' | xargs printf %o)"
+  fi
 
   # Then see what terminfo thinks backspace is
   terminfo_erase="$(TERMINFO="$override_dir" tput -T$term kbs)"

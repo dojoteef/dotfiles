@@ -14,6 +14,11 @@ function src() {
     for file in $DOTFILES/source/*; do
       source "$file"
     done
+
+    # Local .bashrc to specify machine specific settings and overrides
+    if [[ -f "$HOME/.bashrc.local" ]]; then
+      source "$HOME/.bashrc.local"
+    fi
   fi
 }
 

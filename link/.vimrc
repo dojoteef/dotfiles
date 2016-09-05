@@ -1037,7 +1037,7 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
   endfunction
 
   function! s:neomake_remove_all()
-    for bufinfo in keys(s:neomake_buffers)
+    for bufinfo in values(s:neomake_buffers)
       call delete(bufinfo.file)
     endfor
     let s:neomake_buffers = {}

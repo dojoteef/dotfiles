@@ -13,6 +13,7 @@ packages=(
   build-essential
   cmake
   exuberant-ctags
+  fbterm
   figlet
   git
   git-extras
@@ -48,7 +49,7 @@ if [[ ! "$(type -P hub)" ]]; then
   bc_dir="/usr/share/bash-completion/completions"
   bc_file="etc/hub.bash_completion.sh"
 
-  huburl="$(curl -fsSL https://api.github.com/repos/github/hub/releases | grep browser_download_url | grep 'darwin-amd64' | head -n 1 | cut -d '"' -f 4)"
+  huburl="$(curl -fsSL https://api.github.com/repos/github/hub/releases | grep browser_download_url | grep 'linux-amd64' | head -n 1 | cut -d '"' -f 4)"
   hubdir="/tmp/$(echo ${huburl} | awk 'BEGIN {FS="/"} {print $(NF)}' | sed 's/[.]\{1,\}[^.]\{1,\}$//')"
 
   e_header "Downloading 'hub'" &&
@@ -59,4 +60,22 @@ if [[ ! "$(type -P hub)" ]]; then
   sudo install -d ${bc_dir} &&
   sudo install -p -m644 ${hubdir}/${bc_file} ${bc_dir}/hub &&
   rm -rf ${hubdir}
+fi
+
+# Need to setup fbterm correctly for non-root users
+if [[ "$(type fbterm)" ]]; then
+  function setfbtermcap () {
+    local cap="cap_$1+$2"
+    setcap -v "$cap" $(command -v fbterm)
+    if [[ $? -ne  0 ]]; then
+      sudo setcap "$cap" $(command -v fbterm)
+    fi
+  }
+
+  # Have to add to group 'video' so they can access framebuffer
+  sudo gpasswd --add $USER video
+
+  # Have to add these capabilities for keyboard to work correctly
+  setfbtermcap 'sys_admin' 'ep'
+  setfbtermcap 'sys_tty_config' 'ep'
 fi

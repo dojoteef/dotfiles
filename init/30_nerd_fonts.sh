@@ -7,7 +7,7 @@ cache_dir=$DOTFILES/caches/fonts
 if is_osx; then
   font_dir="$HOME/Library/Fonts"
 elif is_ubuntu; then
-  font_dir=".local/share/fonts"
+  font_dir="$HOME/.local/share/fonts"
 fi
 mkdir -p "$font_dir"
 
