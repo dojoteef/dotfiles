@@ -93,8 +93,8 @@ Plug 'easymotion/vim-easymotion' | Plug 'haya14busa/incsearch-easymotion.vim'
 if executable('fzf')
   Plug '~/.fzf' | Plug 'junegunn/fzf.vim'
 endif
-Plug 'scrooloose/nerdtree', { 'on': ['NERDTree', 'NERDTreeToggle'] }
-      \ | Plug 'Xuyuanp/nerdtree-git-plugin', { 'on': ['NERDTree', 'NERDTreeToggle'] }
+Plug 'scrooloose/nerdtree', { 'on': ['NERDTree', 'NERDTreeToggle', 'NERDTreeFind'] }
+      \ | Plug 'Xuyuanp/nerdtree-git-plugin', { 'on': ['NERDTree', 'NERDTreeToggle', 'NERDTreeFind'] }
 
 " tmux
 Plug 'tmux-plugins/vim-tmux'
@@ -149,7 +149,13 @@ set noshowmode " Don't show the current mode (airline.vim takes care of us)
 set laststatus=2 " Always show status line
 set colorcolumn=+1 " Make it obvious where text would wrap with 'textwidth'
 set background=dark
-colorscheme zenburn
+
+" Set colorscheme to zenburn if it exists
+if isdirectory(expand(b:plugin_directory . '/Zenburn'))
+  colorscheme zenburn
+else
+  colorscheme desert
+endif
 syntax enable
 
 " There is a potential for screen flicker, these next two settings
@@ -179,6 +185,8 @@ set splitright " New split goes right
 set hidden " When a buffer is brought to foreground, remember undo history and marks.
 set report=0 " Show all changes.
 set mouse=a " Enable mouse in all modes.
+set timeout
+set timeoutlen=250
 if has('mouse_sgr')
   set ttymouse=sgr
 endif
@@ -217,9 +225,6 @@ nnoremap <C-H> <C-W>h
 
 " Toggle paste
 noremap <silent> <leader>pp :set invpaste paste?<CR>
-
-" Clear search highlight
-nnoremap <silent> <leader>/ :nohlsearch<CR>
 
 " Allow saving of files as sudo when I forgot to start vim using sudo.
 cnoremap w!! w !sudo tee > /dev/null %
@@ -335,7 +340,7 @@ if isdirectory(expand(b:plugin_directory . '/vim-airline'))
   " See https://github.com/vim-airline/vim-airline/issues/1125
   let g:airline_exclude_preview = 1
 
-  let g:airline_theme = 'zenburn'
+  let g:airline_theme = g:colors_name
 
   " Only enable tmuxline and promptline while installing
   let g:airline#extensions#tmuxline#enabled = g:vim_installing
@@ -1180,4 +1185,64 @@ if isdirectory(expand(b:plugin_directory . '/vim-easy-align'))
 
   " Start interactive EasyAlign for a motion/text object (e.g. gaip)
   nnoremap ga <Plug>(EasyAlign)
+endif
+
+"///////////////"
+" incsearch.vim "
+"///////////////"
+"Plug 'haya14busa/' | Plug 'haya14busa/incsearch-fuzzy.vim'
+if isdirectory(expand(b:plugin_directory . '/incsearch.vim'))
+  map /  <Plug>(incsearch-forward)
+  map ?  <Plug>(incsearch-backward)
+  map g/ <Plug>(incsearch-stay)
+
+  let g:incsearch#auto_nohlsearch = 1
+  map n  <Plug>(incsearch-nohl-n)
+  map N  <Plug>(incsearch-nohl-N)
+  map *  <Plug>(incsearch-nohl-*)
+  map #  <Plug>(incsearch-nohl-#)
+  map g* <Plug>(incsearch-nohl-g*)
+  map g# <Plug>(incsearch-nohl-g#)
+endif
+
+"/////////////////////"
+" incsearch-fuzzy.vim "
+"/////////////////////"
+if isdirectory(expand(b:plugin_directory . '/incsearch-fuzzy.vim'))
+  function! s:config_fuzzyall(...) abort
+    return extend(copy({
+          \   'converters': [
+          \     incsearch#config#fuzzy#converter(),
+          \     incsearch#config#fuzzyspell#converter()
+          \   ],
+          \ }), get(a:, 1, {}))
+  endfunction
+
+  noremap <silent><expr> z/ incsearch#go(<SID>config_fuzzyall())
+  noremap <silent><expr> z? incsearch#go(<SID>config_fuzzyall({'command': '?'}))
+  noremap <silent><expr> zg? incsearch#go(<SID>config_fuzzyall({'is_stay': 1}))
+endif
+
+"//////////////////////////"
+" incsearch-easymotion.vim "
+"//////////////////////////"
+if isdirectory(expand(b:plugin_directory . '/incsearch-easymotion.vim'))
+  function! s:config_easyfuzzymotion(...) abort
+    return extend(copy({
+          \   'converters': [incsearch#config#fuzzy#converter()],
+          \   'modules': [incsearch#config#easymotion#module()],
+          \   'keymap': {"\<CR>": '<Over>(easymotion)'},
+          \   'is_expr': 0,
+          \   'is_stay': 1
+          \ }), get(a:, 1, {}))
+  endfunction
+
+  noremap <silent><expr> <Space>/ incsearch#go(<SID>config_easyfuzzymotion())
+endif
+
+"////////////////"
+" easymotion.vim "
+"////////////////"
+if isdirectory(expand(b:plugin_directory . '/easymotion.vim'))
+  nnoremap <leader>s <Plug>(easymotion-s)
 endif

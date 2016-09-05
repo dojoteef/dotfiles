@@ -2,8 +2,10 @@
 export DOTFILES=~/.dotfiles
 
 # Add binaries into the path
-PATH=$DOTFILES/bin:$PATH
-export PATH
+DOTGLOB="*$DOTFILES/bin*"
+if [[ -d $DOTFILES/bin ]] && [[ ! "$PATH" == $DOTGLOB ]]; then
+  export PATH=$DOTFILES/bin:$PATH
+fi
 
 # Source all files in "source"
 function src() {

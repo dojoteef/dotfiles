@@ -422,8 +422,10 @@ e_header "The script will prompt you to select certain options" \
 
 
 # Add binaries into the path
-[[ -d $DOTFILES/bin ]] && PATH=$DOTFILES/bin:$PATH
-export PATH
+DOTGLOB="*$DOTFILES/bin*"
+if [[ -d $DOTFILES/bin ]] && [[ ! "$PATH" == $DOTGLOB ]]; then
+  export PATH=$DOTFILES/bin:$PATH
+fi
 
 # Tweak file globbing.
 shopt -s dotglob
