@@ -72,6 +72,8 @@ Plug 'Yggdroot/indentLine'
 
 " Tags
 if executable('ctags')
+  " Disable for now until the following issue is addressed:
+  " https://github.com/ludovicchabant/vim-gutentags/issues/93
   Plug 'ludovicchabant/vim-gutentags'
   Plug 'majutsushi/tagbar'
 endif
@@ -1130,16 +1132,16 @@ if isdirectory(expand(b:plugin_directory . '/vim-rooter'))
   let g:rooter_installed = 1
 
   let g:rooter_use_lcd = 1
+  let g:rooter_silent_chdir = 1
 endif
 
 "///////////////"
 " vim-gutentags "
 "///////////////"
 if isdirectory(expand(b:plugin_directory . '/vim-gutentags'))
-  " For now always set the tags file to .git/tags
   " Revisit this after the following issue is addressed:
   " https://github.com/ludovicchabant/vim-gutentags/issues/93
-  let g:gutentags_tagfile='.git/tags'
+  let g:gutentags_cache_dir = $DOTFILES . "/caches/ctags"
 
   if get(g:, 'airline_installed')
     " Add vim-gutentags status
@@ -1245,4 +1247,12 @@ endif
 "////////////////"
 if isdirectory(expand(b:plugin_directory . '/easymotion.vim'))
   nnoremap <leader>s <Plug>(easymotion-s)
+endif
+
+
+"////////////"
+" indentLine "
+"////////////"
+if isdirectory(expand(b:plugin_directory . '/Yggdroot/indentLine'))
+  let g:indentLine_fileTypeExclude=['text', 'help']
 endif

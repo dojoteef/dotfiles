@@ -1,13 +1,42 @@
 #!/usr/bin/env bash
 
+#################
+# Script setup
+#################
+
+# error handling
 trap 'errexit' ERR
 set +o errexit
 set -o errtrace
 
+# exit handling
+function on_exit()
+{
+  rm -f "$tmpfile"
+}
+
+trap 'on_exit>&2' EXIT INT TERM
+
+# error logging
+exec 2> >(logger -t "githook.ctagsupdate[$$]") || true
+
+
+#######################
+# Variable declarations
+#######################
+
+# ensure cache directory exists
+cachedir="$DOTFILES/caches/ctags"
+mkdir -p "$cachedir"
+
+# use same naming scheme as gutentags
+gitdirname="$(git rev-parse --show-toplevel | tr '/\: ' '---_' | sed -e's/^-*//')"
+tagfile="$cachedir/$gitdirname""-tags"
+
 # empty tree obj
 empty_tree="$(git hash-object -t tree /dev/null)"
 
-dir="$(git rev-parse --git-dir)"
+# current revision
 rev="$(git rev-parse HEAD 2> /dev/null)"
 
 # there is no hash for HEAD so must be an empty tree
@@ -15,15 +44,21 @@ if [[ "$rev" == "HEAD" ]]; then
   rev="$empty_tree"
 fi
 
-if [[ -r "$dir/tags.last" ]]; then
-  read last < "$dir/tags.last"
+if [[ -r "$tagfile.last" ]]; then
+  read last < "$tagfile.last"
 else
   last="$empty_tree"
 fi
-tagfile=$(mktemp "git-update-tags.XXXXXXXX")
+tmpfile=$(mktemp "git-update-tags.XXXXXXXX")
+
+#######################
+# Function declarations
+#######################
 
 function gather_files()
 {
+  local files=()
+
   while read -r dstatus filename; do
     case $dstatus in
       A|M|T|X|D|R*) 
@@ -33,6 +68,8 @@ function gather_files()
         ;;
     esac
   done < <(git diff --name-status "$1")
+
+  echo "${files[*]}"
 }
 
 function handle_diff()
@@ -45,24 +82,22 @@ function handle_diff()
   # Then add staged files
   files+=($(gather_files "--cached"))
 
-  ctags_update -o "$tagfile" "${files[@]}"
+  if [[ ${#files[@]} -gt 0 ]]; then
+    ctags_update -o "$tmpfile" "${files[*]}"
+  fi
 }
 
 function initial_tags()
 {
-  git ls-files | ctags -L - -o "$tagfile" && mv "$tagfile" "$dir/tags"
-  echo $rev > "$dir/tags.last"
+  git ls-files | ctags -L - -o "$tmpfile" && mv "$tmpfile" "$tagfile"
+  echo $rev > "$tagfile.last"
   exit 0
 }
 
-function on_exit()
-{
-  rm -f "$tagfile"
-}
+#######################
+# Main
+#######################
 
-trap 'on_exit>&2' EXIT INT TERM
-exec 2> >(logger -t "githook.ctagsupdate[$$]") || true
-
-[ -f "$dir/tags" ] && cp "$dir/tags" "$tagfile" || initial_tags
-handle_diff && mv -v "$tagfile" "$dir/tags"
-echo $rev > "$dir/tags.last"
+[ -f "$tagfile" ] && cp "$tagfile" "$tmpfile" || initial_tags
+handle_diff && mv -v "$tmpfile" "$tagfile"
+echo $rev > "$tagfile.last"

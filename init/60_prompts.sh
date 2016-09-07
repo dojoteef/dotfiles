@@ -28,7 +28,7 @@ if [[ "$(type -P $VIM)" ]]; then
     # Remove 'status-utf8'. It is deprecated and generates a warning.
     # https://github.com/edkolev/tmuxline.vim/issues/53
     # https://github.com/edkolev/tmuxline.vim/issues/56
-    sed -i '' '/status-utf8/d' "$prompt_dir/tmux"
+    sed -i'' -e '/status-utf8/d' "$DOTFILES/caches/prompts/tmux"
   fi
 
   # Now make sure to clean out tmuxline and promptline as they

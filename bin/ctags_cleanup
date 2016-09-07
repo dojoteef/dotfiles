@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+
+trap 'errexit' ERR
+set -o errtrace
+
+function getglobpath() {
+  local globpath
+  globpath=$(echo $1 | sed -e's/\([^/]*\)-tags$/\1/' | tr "\-_" "??")
+  printf '%s -path "/%s" ' "$2" "$globpath"
+}
+
+function getdirectories() {
+  local globpaths
+  globpaths=("$(for f in ${filenames[@]}; do getglobpath $f $or; or='-or'; done)")
+  [[ "$OSTYPE" =~ ^darwin ]] && findcmd='find -x' || findcmd='find'
+
+  bash -c "$findcmd / -type d ! -perm -a+r -prune -or -type d \( ${globpaths[*]} \) -print"
+}
+
+cachedir=$DOTFILES/caches/ctags
+if [[ ! -d "$cachedir" ]]; then
+  exit 0
+fi
+
+# Get all tags files in the cache directory
+shopt -s nullglob
+filenames=($cachedir/*-tags)
+if [[ "${#filenames[@]}" -eq 0 ]]; then
+  exit 0
+fi
+
+# Get the base filename
+filenames=("$(for f in ${filenames[@]}; do basename $f; done)")
+
+# Find which directories still exist
+directories=("$(getdirectories)")
+
+# Then convert the directory name to the tag filename
+found=("$(for d in ${directories[@]}; do echo $d | tr '/\: ' '---_' | sed -e's/^-*//' | xargs printf "%s-tags\n"; done)")
+
+# Determine which tags belong to directories that no longer exist
+missing=("$(echo "${filenames[@]}" "${found[@]}" | tr ' ' '\n' | sort | uniq -u)")
+
+# Remove the tags for the missing directories
+for m in ${missing[@]}; do
+  rm -f "$cachedir/$m"*
+done
