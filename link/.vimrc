@@ -72,8 +72,6 @@ Plug 'Yggdroot/indentLine'
 
 " Tags
 if executable('ctags')
-  " Disable for now until the following issue is addressed:
-  " https://github.com/ludovicchabant/vim-gutentags/issues/93
   Plug 'ludovicchabant/vim-gutentags'
   Plug 'majutsushi/tagbar'
 endif
@@ -1139,10 +1137,19 @@ endif
 " vim-gutentags "
 "///////////////"
 if isdirectory(expand(b:plugin_directory . '/vim-gutentags'))
-  " Revisit this after the following issue is addressed:
-  " https://github.com/ludovicchabant/vim-gutentags/issues/93
+  " Use a single cache directory.
+  " 'ctags_cleanup' script can remove orphaned tags files
   let g:gutentags_cache_dir = $DOTFILES . "/caches/ctags"
 
+  " Only list files that are actually part of the project
+  let g:gutentags_file_list_command = {
+        \ 'markers': {
+        \ '.git': 'git ls-files',
+        \ '.hg': 'hg files',
+        \ },
+        \ }
+
+  " Update status line if airline is installed
   if get(g:, 'airline_installed')
     " Add vim-gutentags status
     function! GutentagsStatus(...)
@@ -1253,6 +1260,6 @@ endif
 "////////////"
 " indentLine "
 "////////////"
-if isdirectory(expand(b:plugin_directory . '/Yggdroot/indentLine'))
+if isdirectory(expand(b:plugin_directory . '/indentLine'))
   let g:indentLine_fileTypeExclude=['text', 'help']
 endif

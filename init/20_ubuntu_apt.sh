@@ -12,6 +12,8 @@ packages=(
   bash-completion
   build-essential
   cmake
+  clang
+  clang-tidy
   exuberant-ctags
   fbterm
   figlet
@@ -33,7 +35,13 @@ packages=(
   vim # Have to have the latest vim for YouCompleteMe and UltiSnips
 )
 
-packages=($(setdiff "${packages[*]}" "$(dpkg --get-selections | grep -v deinstall | awk '{print $1}')"))
+installed=(
+  $(dpkg --get-selections |
+  grep -v deinstall |
+  awk -F '[: \t]' '{print $1}' |
+  grep -F -x $(for p in ${packages[@]}; do printf "%s %s " "-e" "$p"; done))
+)
+packages=($(echo "${installed[@]}" "${packages[@]}" | tr ' ' '\n' | sort | uniq -u))
 
 if (( ${#packages[@]} > 0 )); then
   e_header "Installing APT packages: ${packages[*]}"
