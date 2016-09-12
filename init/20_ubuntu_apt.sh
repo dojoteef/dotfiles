@@ -15,7 +15,6 @@ packages=(
   clang
   clang-tidy
   exuberant-ctags
-  fbterm
   figlet
   git
   git-extras
@@ -68,22 +67,4 @@ if [[ ! "$(type -P hub)" ]]; then
   sudo install -d ${bc_dir} &&
   sudo install -p -m644 ${hubdir}/${bc_file} ${bc_dir}/hub &&
   rm -rf ${hubdir}
-fi
-
-# Need to setup fbterm correctly for non-root users
-if [[ "$(type fbterm)" ]]; then
-  function setfbtermcap () {
-    local cap="cap_$1+$2"
-    setcap -v "$cap" $(command -v fbterm)
-    if [[ $? -ne  0 ]]; then
-      sudo setcap "$cap" $(command -v fbterm)
-    fi
-  }
-
-  # Have to add to group 'video' so they can access framebuffer
-  sudo gpasswd --add $USER video
-
-  # Have to add these capabilities for keyboard to work correctly
-  setfbtermcap 'sys_admin' 'ep'
-  setfbtermcap 'sys_tty_config' 'ep'
 fi
