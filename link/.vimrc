@@ -98,7 +98,6 @@ Plug 'scrooloose/nerdtree', { 'on': ['NERDTree', 'NERDTreeToggle', 'NERDTreeFind
 
 " tmux
 Plug 'tmux-plugins/vim-tmux'
-Plug 'christoomey/vim-tmux-navigator'
 
 " Misc
 Plug 'mbbill/undotree'

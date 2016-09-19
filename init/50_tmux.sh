@@ -8,5 +8,6 @@ else
   cd $tmux_plugins
   git pull --depth 1
   $tmux_plugins/bin/clean_plugins # remove plugins no longer in the list
-  $tmux_plugins/bin/update_plugins all # update all plugins
+  $tmux_plugins/bin/install_plugins # install new plugins
+  $tmux_plugins/bin/update_plugins all # update existing plugins
 fi
