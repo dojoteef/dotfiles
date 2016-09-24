@@ -509,7 +509,7 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
   " Only enable my makeshift neomake ide if neomake has
   " asynchronous job support which makes the lint
   " as you type approach work without constant pauses.
-  let g:enable_neomake_ide = neomake#has_async_support()
+  "let g:enable_neomake_ide = neomake#has_async_support()
 
   " The number of milliseconds to wait before running
   " another neomake lint over the file. If you set
@@ -1198,7 +1198,6 @@ endif
 "///////////////"
 " incsearch.vim "
 "///////////////"
-"Plug 'haya14busa/' | Plug 'haya14busa/incsearch-fuzzy.vim'
 if isdirectory(expand(b:plugin_directory . '/incsearch.vim'))
   map /  <Plug>(incsearch-forward)
   map ?  <Plug>(incsearch-backward)
@@ -1251,8 +1250,8 @@ endif
 "////////////////"
 " easymotion.vim "
 "////////////////"
-if isdirectory(expand(b:plugin_directory . '/easymotion.vim'))
-  nnoremap <leader>s <Plug>(easymotion-s)
+if isdirectory(expand(b:plugin_directory . '/vim-easymotion'))
+  nmap f <Plug>(easymotion-s)
 endif
 
 
