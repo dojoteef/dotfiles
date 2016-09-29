@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Inspiration for this came from:
 # https://github.com/mathiasbynens/dotfiles/blob/master/.macos
 
@@ -16,9 +17,9 @@ function ensure_plist_key() {
 
   echo "Ensuring $key"
 
-  eval $plistcmd "\"Print $key\"" $plist &> /dev/null
+  eval "$plistcmd" "\"Print $key\"" "$plist" &> /dev/null
   if [[ $? -ne 0 ]]; then
-    eval $plistcmd "\"Add $key $dtype\"" $plist
+    eval "$plistcmd" "\"Add $key $dtype\"" "$plist"
   fi
 }
 
@@ -31,7 +32,7 @@ function set_plist_value() {
   value=$(printf '%q' "$3")
 
   echo "Setting $key=$value"
-  eval $plistcmd "\"Set $key $value\"" $plist
+  eval "$plistcmd" "\"Set $key $value\"" "$plist"
 }
 
 #######################
@@ -43,14 +44,14 @@ theme_json_dir="$theme_dir/._json"
 # Install the terminal themes if needed
 e_header "Installing themes"
 if [[ ! -d "$theme_dir" ]]; then
-  git clone --depth 1 https://github.com/mbadolato/iTerm2-Color-Schemes.git $theme_dir
+  git clone --depth 1 https://github.com/mbadolato/iTerm2-Color-Schemes.git "$theme_dir"
 else
-  cd $theme_dir && git pull
+  cd "$theme_dir" && git pull
 fi
 
 e_header "Converting themes to json"
-mkdir -p $theme_json_dir
-find $theme_dir -iname '*.itermcolors' -print0 | while read -d $'\0' theme; do
+mkdir -p "$theme_json_dir"
+find "$theme_dir" -iname '*.itermcolors' -print0 | while read -r -d $'\0' theme; do
   theme_name="$(basename "$theme" .itermcolors)"
   json_theme="$theme_json_dir/$theme_name.json"
   if [[ ! -f "$json_theme" ]]; then
@@ -75,9 +76,9 @@ defaults write com.apple.terminal SecureKeyboardEntry -bool true
 
 echo "Setting default theme to Zenburn"
 if [[ "$nerd_font" ]]; then
-  $DOTFILES/bin/osx_terminal_theme Zenburn -d $theme_dir/terminal -D Zenburn -f "$nerd_font" -s 12
+  "$DOTFILES/bin/osx_terminal_theme" Zenburn -d "$theme_dir/terminal" -D Zenburn -f "$nerd_font" -s 12
 else
-  $DOTFILES/bin/osx_terminal_theme Zenburn -d $theme_dir/terminal -D Zenburn
+  "$DOTFILES/bin/osx_terminal_theme" Zenburn -d "$theme_dir/terminal" -D Zenburn
 fi
 
 #######################
@@ -86,7 +87,11 @@ fi
 if open -Ra iterm &> /dev/null; then
   e_header "Setting iTerm preferences"
 
-  OLD_DOTVARS=$DOTVARS
+  export DOTFONTSIZE
+  export DOTFONTNAME
+  export DOTPROFILE
+
+  OLD_DOTVARS=(${DOTVARS[*]})
   DOTVARS=("profile" "fontname" "fontsize")
   if [[ "$nerd_font" ]]; then
     DOTFONTSIZE=12
@@ -121,7 +126,7 @@ if open -Ra iterm &> /dev/null; then
 
     defaults write $iterm_domain "Default Bookmark Guid" "$DOTPROFILE"
   fi
-  DOTVARS=$OLD_DOTVARS
+  DOTVARS=(${OLD_DOTVARS[*]})
 fi
 
 
@@ -417,15 +422,20 @@ if [[ "$TERM_PROGRAM" == "Apple_Terminal" ]]; then
     completes restart Terminal.app to ensure the changes are correctly applied."
 
   # Remove "Terminal" it is set as the first element in the array
-  affected_apps="${affected_apps[@]:1}"
+  affected_apps=(${affected_apps[@]:1})
 fi
 
 e_arrow "To apply all settings you must exit the following applications: \
   $(join_strings "\n   " "${affected_apps[@]}")"
-[[ $ACCEPT_DEFAULTS ]] && kill_affected='N' || read -n 1 -p "Close affected applications [y/N] " kill_affected; echo
+
+if [[ $DOTDEFAULTS ]]; then
+  kill_affected='N' 
+else
+  read -r -n 1 -p "Close affected applications [y/N] " kill_affected; echo
+fi
 
 if [[ "$kill_affected" =~ [Yy] ]]; then
-  for app in ${affected_apps[@]}; do
+  for app in "${affected_apps[@]}"; do
     killall "${app}" &> /dev/null
   done
 fi

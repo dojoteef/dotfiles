@@ -1,3 +1,5 @@
+#!/bin/bash -n
+
 # History settings
 
 # Allow use to re-edit a faild history substitution.

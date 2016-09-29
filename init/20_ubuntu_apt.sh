@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # Ubuntu-only stuff. Abort if not Ubuntu.
 is_ubuntu || return 1
 
@@ -42,7 +44,7 @@ installed=(
   $(dpkg --get-selections |
   grep -v deinstall |
   awk -F '[: \t]' '{print $1}' |
-  grep -F -x $(for p in ${packages[@]}; do printf "%s %s " "-e" "$p"; done))
+  grep -F -x "$(for p in "${packages[@]}"; do printf "%s %s " "-e" "$p"; done)")
 )
 packages=($(echo "${installed[@]}" "${packages[@]}" | tr ' ' '\n' | sort | uniq -u))
 
@@ -61,14 +63,14 @@ if [[ ! "$(type -P hub)" ]]; then
   bc_file="etc/hub.bash_completion.sh"
 
   huburl="$(curl -fsSL https://api.github.com/repos/github/hub/releases | grep browser_download_url | grep 'linux-amd64' | head -n 1 | cut -d '"' -f 4)"
-  hubdir="/tmp/$(echo ${huburl} | awk 'BEGIN {FS="/"} {print $(NF)}' | sed 's/[.]\{1,\}[^.]\{1,\}$//')"
+  hubdir="/tmp/$(echo "${huburl}" | awk 'BEGIN {FS="/"} {print $(NF)}' | sed 's/[.]\{1,\}[^.]\{1,\}$//')"
 
   e_header "Downloading 'hub'" &&
-  rm -rf ${hubdir} &&
-  curl -fsSL ${huburl} | tar -C /tmp -xvzf - &> /dev/null &&
+  rm -rf "${hubdir}" &&
+  curl -fsSL "${huburl}" | tar -C /tmp -xvzf - &> /dev/null &&
   e_header "Installing 'hub'" &&
-  sudo ${hubdir}/install &&
+  sudo "${hubdir}/install" &&
   sudo install -d ${bc_dir} &&
-  sudo install -p -m644 ${hubdir}/${bc_file} ${bc_dir}/hub &&
-  rm -rf ${hubdir}
+  sudo install -p -m644 "${hubdir}/${bc_file}" ${bc_dir}/hub &&
+  rm -rf "${hubdir}"
 fi

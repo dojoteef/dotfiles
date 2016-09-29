@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 prompt_dir=$DOTFILES/caches/prompts
 
 # Create directory if it doesn't exist
@@ -5,7 +7,7 @@ prompt_dir=$DOTFILES/caches/prompts
 
 # Create bash and tmux prompts using vim-airline themes
 # by using promptline and tmuxline respectively
-if [[ "$(type -P $VIM)" ]]; then
+if [[ "$(type -P "$VIM")" ]]; then
   echo "Updating bash prompt"
   # Must delete the previous prompt file because Tmuxline will
   # not overwrite the existing one. It shouldn't be modified

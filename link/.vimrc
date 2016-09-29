@@ -512,7 +512,7 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
   " Only enable my makeshift neomake ide if neomake has
   " asynchronous job support which makes the lint
   " as you type approach work without constant pauses.
-  "let g:neomake_enable_ide = neomake#has_async_support()
+  let g:neomake_enable_ide = neomake#has_async_support()
 
   " Where to cache temporary files used for linting
   " unwritten buffers.

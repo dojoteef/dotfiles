@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # Installing this sudoers file makes life easier.
 sudoers_file="sudoers-dotfiles"
 sudoers_src=$DOTFILES/conf/$(get_os)/$sudoers_file
@@ -12,7 +14,12 @@ looks normal, it worked.
 
 THIS SHOULD ONLY BE ATTEMPTED IF YOU ARE LOGGED IN AS ROOT IN ANOTHER SHELL.
 EOF
-  [[ $ACCEPT_DEFAULTS ]] && update_sudoers="N" || read -n 1 -p "Update sudoers file? [y/N] " update_sudoers; echo
+  if [[ $DOTDEFAULTS ]]; then
+    update_sudoers="N"
+  else
+    read -r -n 1 -p "Update sudoers file? [y/N] " update_sudoers; echo
+  fi
+
   if [[ "$update_sudoers" =~ [Yy] ]]; then
     e_header "Updating sudoers"
     sudo mkdir -p $sudoers_dir &&

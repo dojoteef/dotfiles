@@ -1,3 +1,5 @@
+#!/bin/bash -n
+
 # Files will be created with these permissions:
 # files 644 -rw-r--r-- (666 minus 022)
 # dirs  755 drwxr-xr-x (777 minus 022)
@@ -25,9 +27,13 @@ alias fs="stat -f '%z bytes'"
 
 if [[ -d ~/.fzf/bin ]]; then
   [ -f ~/.fzf.bash ] && source ~/.fzf.bash
-  [[ "$(type -P ag))" ]] && export FZF_DEFAULT_COMMAND='ag --hidden -g ""' || export FZF_DEFAULT_COMMAND='find .'
+  if [[ "$(type -P ag)" ]]; then
+    export FZF_DEFAULT_COMMAND='ag --hidden -g ""'
+  else
+    export FZF_DEFAULT_COMMAND='find .'
+  fi
 fi
 
-if [[ "$(type -P ag))" ]]; then
+if [[ "$(type -P ag)" ]]; then
   alias ag='ag --color'
 fi

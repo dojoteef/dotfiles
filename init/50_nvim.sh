@@ -1,23 +1,30 @@
+#!/usr/bin/env bash
+
 # Need to touch .vimrc in case it does not exist otherwise 'ln' will fail
-touch $HOME/.vimrc
+touch "$HOME/.vimrc"
 
 # Additionally ensure the .vim directory exists, though it is non fatal if it is missing
-mkdir -p $HOME/.vim
+mkdir -p "$HOME/.vim"
 
 # Taken from the nvim-from-vim docs:
 # https://neovim.io/doc/user/nvim.html#nvim-from-vim
-mkdir -p ${XDG_CONFIG_HOME:=$HOME/.config}
-[[ -e $XDG_CONFIG_HOME/nvim ]] || ln -s $HOME/.vim $XDG_CONFIG_HOME/nvim
-[[ -e $XDG_CONFIG_HOME/nvim/init.vim ]] || ln -s $HOME/.vimrc $XDG_CONFIG_HOME/nvim/init.vim
+mkdir -p "${XDG_CONFIG_HOME:=$HOME/.config}"
+[[ -e $XDG_CONFIG_HOME/nvim ]] || ln -s "$HOME/.vim" "$XDG_CONFIG_HOME/nvim"
+[[ -e $XDG_CONFIG_HOME/nvim/init.vim ]] || ln -s "$HOME/.vimrc" "$XDG_CONFIG_HOME/nvim/init.vim"
 
-[[ "$(type -P nvim)" ]] && e_header "Updating neovim" || e_header "Installing neovim"
+if [[ "$(type -P nvim)" ]]; then
+  e_header "Updating neovim"
+else
+  e_header "Installing neovim"
+fi
+
 if is_osx; then
   # Exit if Homebrew is not installed.
   [[ ! "$(type -P brew)" ]] && e_error "Brew recipes need Homebrew to install." && return 1
 
-  brew bundle --file=$DOTFILES/conf/osx/brew/neovim check &> /dev/null
+  brew bundle "--file=$DOTFILES/conf/osx/brew/neovim" check &> /dev/null
   if [[ $? -ne 0 ]]; then
-    brew bundle --file=$DOTFILES/conf/osx/brew/neovim
+    brew bundle "--file=$DOTFILES/conf/osx/brew/neovim"
   fi
 else
   # Add the Personal Package Archive for neovim
@@ -61,11 +68,11 @@ function fix_terminfo() {
   fi
 
   # Then see what terminfo thinks backspace is
-  terminfo_erase="$(TERMINFO="$override_dir" tput -T$term kbs)"
-  if [[ "$(printf $terminfo_erase | od -t oC | tail -1)" -eq 1 ]]; then
+  terminfo_erase="$(TERMINFO="$override_dir" tput "-T$term" kbs)"
+  if [[ "$(printf "%s" "$terminfo_erase" | od -t oC | tail -1)" -eq 1 ]]; then
     # If it is a single character then converting it with od is the correct approach,
     # otherwise it means it's a character sequence which is more likely a octal or hex number.
-    terminfo_erase="$(printf $terminfo_erase | od -t oC | head -n 1 | awk '{print $2}')"
+    terminfo_erase="$(printf "%s" "$terminfo_erase" | od -t oC | head -n 1 | awk '{print $2}')"
   fi
 
   # If they don't agree then make terminfo use the termios value
@@ -82,9 +89,9 @@ function fix_terminfo() {
     cmd="infocmp $term | sed 's/\($re_identifier$re_equals\)\($re_value\)/\1$termios_erase'/ > $terminfo_file"
     bash -c "$cmd"
 
-    mkdir -p $terminfo_dir
-    tic -o $terminfo_dir $terminfo_file
-    rm -f $terminfo_file
+    mkdir -p "$terminfo_dir"
+    tic -o "$terminfo_dir" "$terminfo_file"
+    rm -f "$terminfo_file"
   fi
 }
 
@@ -100,4 +107,4 @@ fix_terminfo "xterm-256color"
 # with neovim when doing 'nvim +PlugInstall +qall'.
 # https://github.com/junegunn/vim-plug/issues/104
 # https://github.com/junegunn/vim-plug/issues/499
-# export VIM='nvim'
+# export VIM_PROGRAM='nvim'

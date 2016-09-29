@@ -22,7 +22,9 @@ export DOTFILES=~/.dotfiles
 # Determine hostname and user for the rest of the configuration. Use
 # 'DOT' as a prefix so as not to potentially interfere with common 
 # environment variables.
+export DOTHOST DOTUSER
 DOTHOST=$(hostname)
+
 loggedin_user=$(logname)
 current_user=$(whoami)
 if [[ "${current_user}" == "${loggedin_user}" ]]; then
@@ -34,7 +36,7 @@ in as (${loggedin_user}). Since the configuration is user specific please
 choose "Y" to use the current user, otherwise it will use the original
 logged in user.
 USERNAME
-  read -n 1 -p "Use current user? [Y/n] " use_current_user; echo
+  read -r -n 1 -p "Use current user? [Y/n] " use_current_user; echo
   if [[ "$use_current_user" =~ [Nn] ]]; then
     DOTUSER=${loggedin_user}
   else
@@ -62,13 +64,13 @@ function dot_substitute() {
     cmd="sed"
     for var in "${DOTVARS[@]}"; do
       # Convert from 'var' to 'DOTVAR'
-      subst="\${$(echo "DOT"$(eval echo "$var" | tr '[:lower:]' '[:upper:]'))}"
+      subst="$(echo "\${DOT$var}" | tr '[:lower:]' '[:upper:]')"
 
       # Escape resultant ${DOTVAR}
-      subst=$(echo "$(eval echo "${subst}")" | sed -e 's/[\/&]/\\&/g')
+      subst="$(eval echo "${subst}" | sed -e 's/[\/&]/\\&/g')"
 
       # Finally add the sed replacement
-      cmd="${cmd} -e 's/\${"$var"}/${subst}/'"
+      cmd="${cmd} -e 's/\${$var}/${subst}/'"
     done
     cmd="${cmd} \"${src}\" > \"${dest}\""
   fi
@@ -79,15 +81,22 @@ function dot_substitute() {
     bash -c "${cmd}"
   fi
 }
+export -f dot_substitute
 
 # Simple function to join strings with a multi-character separator
 function join_strings() { sep="$1"; shift; str="$(printf "${sep}%s" "${@}")"; echo "${str}"; }
+export -f join_strings
 
 # Logging stuff.
-function e_header()   { echo -e "\n\033[1m$@\033[0m"; }
-function e_success()  { echo -e " \033[1;32m✔\033[0m  $@"; }
-function e_error()    { echo -e " \033[1;31m✖\033[0m  $@"; }
-function e_arrow()    { echo -e " \033[1;34m➜\033[0m  $@"; }
+function e_header()   { echo -e "\n\033[1m$*\033[0m"; }
+function e_success()  { echo -e " \033[1;32m✔\033[0m  $*"; }
+function e_error()    { echo -e " \033[1;31m✖\033[0m  $*"; }
+function e_arrow()    { echo -e " \033[1;34m➜\033[0m  $*"; }
+
+export -f e_header
+export -f e_success
+export -f e_error
+export -f e_arrow
 
 # For testing.
 function assert() {
@@ -97,6 +106,7 @@ function assert() {
   [[ "$actual" == "$expected" ]] && success=1 || success=0
   ${modes[success]} "\"$actual\" ${equals[success]} \"$expected\""
 }
+export -f assert
 
 # OS detection
 function is_osx() {
@@ -107,9 +117,12 @@ function is_ubuntu() {
 }
 function get_os() {
   for os in osx ubuntu; do
-    is_$os; [[ $? == ${1:-0} ]] && echo $os
+    is_$os; [[ $? == "${1:-0}" ]] && echo $os
   done
 }
+export -f is_osx
+export -f is_ubuntu
+export -f get_os
 
 # Remove an entry from $PATH
 # Based on http://stackoverflow.com/a/2108540/142339
@@ -121,71 +134,7 @@ function path_remove() {
   path="${path#:}"
   echo "$path"
 }
-
-# Display a fancy multi-select menu.
-# Inspired by http://serverfault.com/a/298312
-function prompt_menu() {
-  local exitcode prompt nums
-  exitcode=0
-  if [[ "$2" ]]; then
-    _prompt_menu_draws "$1"
-    read -t $2 -n 1 -sp "To edit this list, press any key within $2 seconds. "
-    exitcode=$?
-    echo ""
-  fi 1>&2
-  if [[ "$exitcode" == 0 ]]; then
-    prompt="Toggle options (Separate options with spaces, ENTER when done): "
-    while _prompt_menu_draws "$1" 1 && read -rp "$prompt" nums && [[ "$nums" ]]; do
-      _prompt_menu_adds $nums
-    done
-  fi 1>&2
-  _prompt_menu_adds
-}
-
-function _prompt_menu_iter() {
-  local i sel state
-  local fn=$1; shift
-  for i in "${!menu_options[@]}"; do
-    state=0
-    for sel in "${menu_selects[@]}"; do
-      [[ "$sel" == "${menu_options[i]}" ]] && state=1 && break
-    done
-    $fn $state $i "$@"
-  done
-}
-
-function _prompt_menu_draws() {
-  e_header "$1"
-  _prompt_menu_iter _prompt_menu_draw "$2"
-}
-
-function _prompt_menu_draw() {
-  local modes=(error success)
-  if [[ "$3" ]]; then
-    e_${modes[$1]} "$(printf "%2d) %s\n" $(($2+1)) "${menu_options[$2]}")"
-  else
-    e_${modes[$1]} "${menu_options[$2]}"
-  fi
-}
-
-function _prompt_menu_adds() {
-  _prompt_menu_result=()
-  _prompt_menu_iter _prompt_menu_add "$@"
-  menu_selects=("${_prompt_menu_result[@]}")
-}
-
-function _prompt_menu_add() {
-  local state i n keep match
-  state=$1; shift
-  i=$1; shift
-  for n in "$@"; do
-    if [[ $n =~ ^[0-9]+$ ]] && (( n-1 == i )); then
-      match=1; [[ "$state" == 0 ]] && keep=1
-    fi
-  done
-  [[ ! "$match" && "$state" == 1 || "$keep" ]] || return
-  _prompt_menu_result=("${_prompt_menu_result[@]}" "${menu_options[i]}")
-}
+export -f path_remove
 
 # An error trace function that can be used with a trap
 # Example usage in a bash script:
@@ -221,6 +170,71 @@ export -f errexit
 # INTERNAL DOTFILES "INIT" VARS / FUNCTIONS
 ###########################################
 
+# Display a fancy multi-select menu.
+# Inspired by http://serverfault.com/a/298312
+function prompt_menu() {
+  local exitcode prompt nums
+  exitcode=0
+  if [[ "$2" ]]; then
+    _prompt_menu_draws "$1"
+    read -r -t "$2" -n 1 -sp "To edit this list, press any key within $2 seconds. "
+    exitcode=$?
+    echo ""
+  fi 1>&2
+  if [[ "$exitcode" == 0 ]]; then
+    prompt="Toggle options (Separate options with spaces, ENTER when done): "
+    while _prompt_menu_draws "$1" 1 && read -rp "$prompt" nums && [[ "$nums" ]]; do
+      _prompt_menu_adds "$nums"
+    done
+  fi 1>&2
+  _prompt_menu_adds
+}
+
+function _prompt_menu_iter() {
+  local i sel state
+  local fn=$1; shift
+  for i in "${!menu_options[@]}"; do
+    state=0
+    for sel in "${menu_selects[@]}"; do
+      [[ "$sel" == "${menu_options[i]}" ]] && state=1 && break
+    done
+    "$fn" "$state" "$i" "$@"
+  done
+}
+
+function _prompt_menu_draws() {
+  e_header "$1"
+  _prompt_menu_iter _prompt_menu_draw "$2"
+}
+
+function _prompt_menu_draw() {
+  local modes=(error success)
+  if [[ "$3" ]]; then
+    "e_${modes[$1]}" "$(printf "%2d) %s\n" $(($2+1)) "${menu_options[$2]}")"
+  else
+    "e_${modes[$1]}" "${menu_options[$2]}"
+  fi
+}
+
+function _prompt_menu_adds() {
+  _prompt_menu_result=()
+  _prompt_menu_iter _prompt_menu_add "$@"
+  menu_selects=("${_prompt_menu_result[@]}")
+}
+
+function _prompt_menu_add() {
+  local state i n keep match
+  state=$1; shift
+  i=$1; shift
+  for n in "$@"; do
+    if [[ $n =~ ^[0-9]+$ ]] && (( n-1 == i )); then
+      match=1; [[ "$state" == 0 ]] && keep=1
+    fi
+  done
+  [[ ! "$match" && "$state" == 1 || "$keep" ]] || return
+  _prompt_menu_result=("${_prompt_menu_result[@]}" "${menu_options[i]}")
+}
+
 # Initialize.
 init_file=$DOTFILES/caches/init/selected
 function init_files() {
@@ -252,8 +266,8 @@ function init_files() {
   done
 }
 function init_do() {
-  e_header "Sourcing $(basename "$2")"
-  source "$2"
+  e_header "Executing $(basename "$2")"
+  $2
 }
 
 # Copy files.
@@ -277,21 +291,21 @@ function link_test() {
 }
 function link_do() {
   e_success "Linking ~/$1."
-  ln -sf ${2#$HOME/} ~/
+  ln -sf "${2#$HOME/}" ~/
 }
 
 # Copy, link, init, etc.
 function do_stuff() {
   local base dest skip
   local files=($DOTFILES/$1/*)
-  [[ $(declare -f "$1_files") ]] && files=($($1_files "${files[@]}"))
+  [[ $(declare -f "$1_files") ]] && files=($("$1_files" "${files[@]}"))
   # No files? abort.
   if (( ${#files[@]} == 0 )); then return; fi
   # Run _header function only if declared.
   [[ $(declare -f "$1_header") ]] && "$1_header"
   # Iterate over files.
   for file in "${files[@]}"; do
-    base="$(basename $file)"
+    base="$(basename "$file")"
     dest="$HOME/$base"
     # Run _test function only if declared.
     if [[ $(declare -f "$1_test") ]]; then
@@ -364,12 +378,12 @@ if [[ ! -d $DOTFILES ]]; then
   # $DOTFILES directory doesn't exist? Clone it!
   new_dotfiles_install=1
   e_header "Downloading dotfiles"
-  git clone --recursive git://github.com/${github_user:-dojoteef}/dotfiles.git $DOTFILES
-  cd $DOTFILES
+  git clone --recursive "git://github.com/${github_user:-dojoteef}/dotfiles.git" $DOTFILES
+  cd $DOTFILES || (e_error "Unable to clone dotfiles" && exit 1)
 elif [[ "$1" != "restart" ]]; then
   # Make sure we have the latest files.
   e_header "Updating dotfiles"
-  cd $DOTFILES
+  cd $DOTFILES || (e_error "Unable to cd into $DOTFILES. Possibly check permissions." && exit 1)
   prev_head="$(git rev-parse HEAD)"
   git pull
   git submodule update --init --recursive --quiet
@@ -384,21 +398,22 @@ if [[ "$new_dotfiles_install" == "" ]] && [[ "$TERM_PROGRAM" == "iTerm.app" ]]; 
     "be able to correctly apply iTerm settings if iTerm is running." \
     "It is recommended to run this from Terminal instead." \
     "Would you like to continue setup?"
-  read -n 1 -p "Continue setup? [y/N] " continue_setup; echo
+  read -r -n 1 -p "Continue setup? [y/N] " continue_setup; echo
   if [[ ! "$continue_setup" =~ [Yy] ]]; then
     exit
   fi
 fi
 
+export DOTDEFAULTS
 e_header "The script will prompt you to select certain options" \
   "if desired you can simply accept the defaults for all the options."
-  read -n 1 -p   "Accept defaults? [y/N] " accept_defaults; echo
-  [[ "$accept_defaults" =~ [Yy] ]] && ACCEPT_DEFAULTS=1 || ACCEPT_DEFAULTS=
+  read -r -n 1 -p   "Accept defaults? [y/N] " accept_defaults; echo
+  [[ "$accept_defaults" =~ [Yy] ]] && DOTDEFAULTS=1 || DOTDEFAULTS=
 
 
 # Add binaries into the path
 DOTGLOB="*$DOTFILES/bin*"
-if [[ -d $DOTFILES/bin ]] && [[ ! "$PATH" == $DOTGLOB ]]; then
+if [[ -d $DOTFILES/bin ]] && [[ ! "$PATH" == "$DOTGLOB" ]]; then
   export PATH=$DOTFILES/bin:$PATH
 fi
 

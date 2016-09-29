@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # Install all fonts
 cache_dir=$DOTFILES/caches/fonts
 

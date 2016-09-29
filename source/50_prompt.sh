@@ -1,3 +1,5 @@
+#!/bin/bash -n
+
 # If we have a custom prompt source it
 
 promptfile="$DOTFILES/caches/prompts/bash" 
