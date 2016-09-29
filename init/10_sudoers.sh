@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+sudo_allowed || exit 1
 
 # Installing this sudoers file makes life easier.
 sudoers_file="sudoers-dotfiles"

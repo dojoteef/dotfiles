@@ -12,33 +12,35 @@ mkdir -p "${XDG_CONFIG_HOME:=$HOME/.config}"
 [[ -e $XDG_CONFIG_HOME/nvim ]] || ln -s "$HOME/.vim" "$XDG_CONFIG_HOME/nvim"
 [[ -e $XDG_CONFIG_HOME/nvim/init.vim ]] || ln -s "$HOME/.vimrc" "$XDG_CONFIG_HOME/nvim/init.vim"
 
-if [[ "$(type -P nvim)" ]]; then
-  e_header "Updating neovim"
-else
-  e_header "Installing neovim"
-fi
-
-if is_osx; then
-  # Exit if Homebrew is not installed.
-  [[ ! "$(type -P brew)" ]] && e_error "Brew recipes need Homebrew to install." && return 1
-
-  brew bundle "--file=$DOTFILES/conf/osx/brew/neovim" check &> /dev/null
-  if [[ $? -ne 0 ]]; then
-    brew bundle "--file=$DOTFILES/conf/osx/brew/neovim"
+if sudo_allowed; then
+  if [[ "$(type -P nvim)" ]]; then
+    e_header "Updating neovim"
+  else
+    e_header "Installing neovim"
   fi
-else
-  # Add the Personal Package Archive for neovim
-  sudo apt-get -qq install software-properties-common
-  sudo add-apt-repository -y ppa:neovim-ppa/unstable
-  sudo apt-get -qq update
 
-  # Install it!
-  sudo apt-get -qq install neovim
+  if is_osx; then
+    # Exit if Homebrew is not installed.
+    [[ ! "$(type -P brew)" ]] && e_error "Brew recipes need Homebrew to install." && return 1
+
+    brew bundle "--file=$DOTFILES/conf/osx/brew/neovim" check &> /dev/null
+    if [[ $? -ne 0 ]]; then
+      brew bundle "--file=$DOTFILES/conf/osx/brew/neovim"
+    fi
+  else
+    # Add the Personal Package Archive for neovim
+    sudo apt-get -qq install software-properties-common
+    sudo add-apt-repository -y ppa:neovim-ppa/unstable
+    sudo apt-get -qq update
+
+    # Install it!
+    sudo apt-get -qq install neovim
+  fi
+
+  e_header "Ensuring latest neovim package for python2/3 is installed"
+  sudo -H pip2 -q install --upgrade neovim
+  sudo -H pip3 -q install --upgrade neovim
 fi
-
-e_header "Ensuring latest neovim package for python2/3 is installed"
-sudo -H pip2 -q install --upgrade neovim
-sudo -H pip3 -q install --upgrade neovim
 
 ###########################################################################
 # Now to address the elephant in the room... fixing the discrepancy between
@@ -96,9 +98,11 @@ function fix_terminfo() {
 }
 
 # Fix commonly used terminal types
-e_header "Fixing terminfo for neovim"
-fix_terminfo "screen-256color"
-fix_terminfo "xterm-256color"
+if [[ "$(type -P nvim)" ]]; then
+  e_header "Fixing terminfo for neovim"
+  fix_terminfo "screen-256color"
+  fix_terminfo "xterm-256color"
+fi
 
 # Need this such that later uses of vim command (see 50_vim.sh and
 # 60_prompts.sh) use the correct vim.

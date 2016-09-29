@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Ubuntu-only stuff. Abort if not Ubuntu.
-is_ubuntu || return 1
+(is_ubuntu && sudo_allowed) || exit 1
 
 # Update APT.
 e_header "Updating APT"

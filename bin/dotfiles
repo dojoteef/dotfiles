@@ -76,7 +76,7 @@ function dot_substitute() {
   fi
 
   if [[ ${priv} ]]; then
-    sudo bash -c "${cmd}"
+    sudo bash -c "${cmd}" 2>/dev/null
   else
     bash -c "${cmd}"
   fi
@@ -123,6 +123,11 @@ function get_os() {
 export -f is_osx
 export -f is_ubuntu
 export -f get_os
+
+function sudo_allowed() {
+  sudo -v 2>/dev/null || return 1
+}
+export -f sudo_allowed
 
 # Remove an entry from $PATH
 # Based on http://stackoverflow.com/a/2108540/142339
@@ -339,10 +344,10 @@ if [[ "$(get_os)" == "" ]]; then
 fi
 
 # Ask for the administrator password upfront
-sudo -v
+sudo_allowed
 
 # Keep-alive: update existing `sudo` time stamp until `dotfiles` has finished
-while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+while sudo_allowed; do sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 
 # Ensure that we can actually, like, compile anything.
 if [[ ! "$(type -P gcc)" ]] && is_osx; then
@@ -362,9 +367,9 @@ fi
 
 # If Git is not installed, install it (Ubuntu only, since Git comes standard
 # with recent XCode or CLT)
-if [[ ! "$(type -P git)" ]] && is_ubuntu; then
+if [[ ! "$(type -P git)" ]] && is_ubuntu && sudo_allowed; then
   e_header "Installing Git"
-  sudo apt-get -qq install git-core
+  sudo apt-get -qq install git-core 2>/dev/null
 fi
 
 # If Git isn't installed by now, something exploded. We gots to quit!

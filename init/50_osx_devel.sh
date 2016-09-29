@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # OSX-only stuff. Abort if not OSX.
-is_osx || return 1
+is_osx || exit 1
 
 if [[ "$(type -p go)" ]] && [[ ! "$(type -p golint)" ]]; then
   GOVERSION=$(go version | go version | grep -oe '\d\.\S\+')

@@ -3,7 +3,7 @@
 # https://github.com/mathiasbynens/dotfiles/blob/master/.macos
 
 # OSX-only stuff. Abort if not OSX.
-is_osx || return 1
+is_osx || exit 1
 
 #######################
 # Useful functions
