@@ -8,7 +8,7 @@ if [[ -d $DOTFILES/bin ]] && [[ ! "$PATH" == "$DOTGLOB" ]]; then
 fi
 
 # Source all files in "source"
-function source_configs() {
+function src() {
   local file
   for file in $DOTFILES/source/*; do
     source "$file"
@@ -20,4 +20,9 @@ function source_configs() {
   fi
 }
 
-source_configs
+# Run dotfiles script, then source.
+function dotfiles() {
+  $DOTFILES/bin/dotfiles "$@" && src
+}
+
+src
