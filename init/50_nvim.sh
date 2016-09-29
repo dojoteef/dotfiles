@@ -30,8 +30,8 @@ else
 fi
 
 e_header "Ensuring latest neovim package for python2/3 is installed"
-sudo -H pip2 install --upgrade neovim
-sudo -H pip3 install --upgrade neovim
+sudo -H pip2 -q install --upgrade neovim
+sudo -H pip3 -q install --upgrade neovim
 
 ###########################################################################
 # Now to address the elephant in the room... fixing the discrepancy between

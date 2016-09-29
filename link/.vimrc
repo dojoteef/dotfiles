@@ -1,6 +1,9 @@
 """"""""""""""""""""""""
 " GLOBAL VARIABLES
 """"""""""""""""""""""""
+" Must be before any multibyte characters are used
+scriptencoding utf-8
+
 " Only allow some configuration settings during install
 let g:vim_installing = $VIM_INSTALLING
 
@@ -12,10 +15,10 @@ let g:syntax_on=g:vim_installing
 let g:tmux = $TMUX
 
 " Useful OS detection
-if has("unix")
-  let s:uname = system("uname -a")
-  let g:osx = s:uname =~? "darwin"
-  let g:ubuntu = s:uname =~? "ubuntu"
+if has('unix')
+  let s:uname = system('uname -a')
+  let g:osx = s:uname =~? 'darwin'
+  let g:ubuntu = s:uname =~? 'ubuntu'
 endif
 
 " Where plugins get installed
@@ -124,7 +127,7 @@ call plug#end()
 set backupdir=$DOTFILES/caches/vim
 set directory=$DOTFILES/caches/vim
 
-if has("persistent_undo")
+if has('persistent_undo')
   set undodir=$DOTFILES/caches/vim
   set undofile
 endif
@@ -162,7 +165,7 @@ syntax enable
 " not.
 
 " https://sunaku.github.io/vim-256color-bce.html
-if &term =~ '256color'
+if &term =~# '256color'
   set t_ut=
 endif
 
@@ -210,7 +213,7 @@ set hlsearch " Highlight searches
 " KEYMAPPINGS
 """"""""""""""""""""""""
 " Change mapleader
-let mapleader=","
+let g:mapleader=','
 
 " Move more naturally up/down when wrapping is enabled.
 nnoremap j gj
@@ -283,7 +286,7 @@ endfunction
 
 function! s:unlet(...)
   let l:prefix = a:1
-  for var in a:2
+  for l:var in a:2
     let l:varname = l:prefix.var
     if exists(l:varname)
       execute 'unlet' l:varname
@@ -292,7 +295,7 @@ function! s:unlet(...)
 endfunction
 
 function! s:funcref(func)
-  return type(a:func) == type('') ? function(a:func) : func
+  return type(a:func) == type('') ? function(a:func) : a:func
 endfunction
 
 function! s:repeat_while_true(func, ...)
@@ -424,14 +427,14 @@ endif
 " NERDTree "
 "//////////"
 if isdirectory(expand(b:plugin_directory . '/nerdtree'))
-  let NERDTreeAutoDeleteBuffer = 1
-  let NERDTreeMinimalUI = 1
-  let NERDTreeMouseMode = 2
-  let NERDTreeShowHidden = 1
-  let NERDTreeShowHiddenFirst = 1
-  let NERDTreeQuitOnOpen = 1
-  let NERDTreeWinSize = 35
-  let NERDTreeIgnore = [
+  let g:NERDTreeAutoDeleteBuffer = 1
+  let g:NERDTreeMinimalUI = 1
+  let g:NERDTreeMouseMode = 2
+  let g:NERDTreeShowHidden = 1
+  let g:NERDTreeShowHiddenFirst = 1
+  let g:NERDTreeQuitOnOpen = 1
+  let g:NERDTreeWinSize = 35
+  let g:NERDTreeIgnore = [
         \ '\.py[cd]$',
         \ '\~$',
         \ '\.swo$',
@@ -509,7 +512,11 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
   " Only enable my makeshift neomake ide if neomake has
   " asynchronous job support which makes the lint
   " as you type approach work without constant pauses.
-  "let g:enable_neomake_ide = neomake#has_async_support()
+  "let g:neomake_enable_ide = neomake#has_async_support()
+
+  " Where to cache temporary files used for linting
+  " unwritten buffers.
+  let g:neomake_cache_dir = $DOTFILES . '/caches/vim'
 
   " The number of milliseconds to wait before running
   " another neomake lint over the file. If you set
@@ -538,10 +545,10 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
   "let g:neomake_verbose = 3
 
   " Constants
-  let s:neomake_msg_noerr = "No errors"
+  let s:neomake_msg_noerr = 'No errors'
   lockvar s:neomake_msg_noerr
 
-  let s:neomake_msg_linting = "Linting..."
+  let s:neomake_msg_linting = 'Linting...'
   lockvar s:neomake_msg_linting
 
   let s:neomake_msgs = [s:neomake_msg_noerr, s:neomake_msg_linting]
@@ -550,7 +557,7 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
   let s:neomake_buffers = {}
   function! s:neomake_buffer_name(basename)
     let l:fname = expand(a:basename.':p:t')
-    let l:tmpdir = fnamemodify(tempname(), ':p:h')
+    let l:tmpdir = fnamemodify(get(g:, 'neomake_cache_dir', tempname()), ':p:h')
     return fnameescape(join([l:tmpdir, l:fname], '/'))
   endfunction
 
@@ -564,9 +571,9 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
     let l:ft = &filetype
     let l:makers = []
     let l:maker_names = neomake#GetEnabledMakers(l:ft)
-    for maker_name in l:maker_names
-      let l:maker = neomake#GetMaker(maker_name, l:ft)
-      let l:full_maker_name = string(a:bufnr).'_'.l:ft.'_'.maker_name
+    for l:maker_name in l:maker_names
+      let l:maker = neomake#GetMaker(l:maker_name, l:ft)
+      let l:full_maker_name = string(a:bufnr).'_'.l:ft.'_'.l:maker_name
 
       " Some makers (like the default go makers) operate on an entire
       " directory which breaks for this file based linting approach.
@@ -584,13 +591,13 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
           " after it completes
           function! l:maker.postprocess(entry)
             " If call the original postprocess if it exists
-            if exists('self.original')
-              call self.original(a:entry)
+            if exists('l:self.original')
+              call l:self.original(a:entry)
             endif
 
             " The neomake job was executed on the temp buffer, so fix up
             " the location list entry to point to the real buffer.
-            let a:entry.bufnr = self.obufnr
+            let a:entry.bufnr = l:self.obufnr
 
             " If no error type is provided default to error
             if !exists('a:entry.type') || empty(a:entry.type)
@@ -616,9 +623,9 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
 
     let l:updated = [{'bufnr': 1, 'text': s:neomake_msg_linting}]
     let l:qflist = getqflist()
-    for entry in l:qflist
-      if entry.bufnr != a:bufnr && index(s:neomake_msgs, entry.text) < 0
-        call add(l:updated, entry)
+    for l:entry in l:qflist
+      if l:entry.bufnr != a:bufnr && index(s:neomake_msgs, l:entry.text) < 0
+        call add(l:updated, l:entry)
       endif
     endfor
     call setqflist(l:updated, 'r')
@@ -639,11 +646,11 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
     let l:updated = []
     let l:qflist = getqflist()
     let l:buflist = tabpagebuflist()
-    for entry in l:qflist
-      if entry.bufnr != a:bufnr
-            \ && index(l:buflist, entry.bufnr) >= 0
-            \ && index(s:neomake_msgs, entry.text) < 0
-        call add(l:updated, entry)
+    for l:entry in l:qflist
+      if l:entry.bufnr != a:bufnr
+            \ && index(l:buflist, l:entry.bufnr) >= 0
+            \ && index(s:neomake_msgs, l:entry.text) < 0
+        call add(l:updated, l:entry)
       endif
     endfor
 
@@ -685,7 +692,7 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
     endif
 
     if exists('s:neomake_managing_loclists')
-      call neomake#utils#ErrorMessage("IDE: already managing location lists")
+      call neomake#utils#ErrorMessage('IDE: already managing location lists')
       return
     endif
 
@@ -699,14 +706,14 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
     unlet s:neomake_managing_loclists
 
     if l:winnr != v:null
-      call neomake#utils#DebugMessage("IDE: switching to window: ".l:winnr)
+      call neomake#utils#DebugMessage('IDE: switching to window: '.l:winnr)
       execute string(l:winnr).'wincmd w'
     endif
   endfunction
 
   function! s:neomake_windo(...)
     let l:ignorelist = &eventignore
-    let &eventignore = "WinEnter,WinLeave,BufEnter,BufLeave"
+    let &eventignore = 'WinEnter,WinLeave,BufEnter,BufLeave'
 
     " Move to top-right window
     wincmd t
@@ -896,8 +903,8 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
   function! s:neomake_running(bufinfo)
     " Check for manually initiated jobs
     let l:jobs = neomake#GetJobs()
-    for jobinfo in values(l:jobs)
-      if jobinfo.bufnr == a:bufinfo.bufnr
+    for l:jobinfo in values(l:jobs)
+      if l:jobinfo.bufnr == a:bufinfo.bufnr
         return 1
       endif
     endfor
@@ -940,12 +947,12 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
     let l:bufinfo.force = 0
 
     " Cancel any in progress jobs
-    for job_id in l:bufinfo.job_ids
+    for l:job_id in l:bufinfo.job_ids
       try
         " TODO: Cancel job does not appear to be working. I'll submit
         " a patch, but in the meantime manually cancel the job.
-        " call neomake#CancelJob(job_id)
-        call jobstop(job_id)
+        " call neomake#CancelJob(l:job_id)
+        call jobstop(l:job_id)
       catch /^Vim\%((\a\+)\)\=:E900/
         " Ignore invalid job id errors. Happens when the job is done,
         " but on_exit hasn't been called yet.
@@ -970,7 +977,7 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
 
     " Write the temporary file and open it
     let l:tmpfile = l:bufinfo.file
-    silent! call writefile(getline(1, '$'), l:tmpfile)
+    silent! keepalt noautocmd call writefile(getline(1, '$'), l:tmpfile)
     silent! execute 'edit' l:tmpfile
 
     " Make sure it is unlisted and has the proper filetype
@@ -1041,8 +1048,8 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
   endfunction
 
   function! s:neomake_remove_all()
-    for bufinfo in values(s:neomake_buffers)
-      call delete(bufinfo.file)
+    for l:bufinfo in values(s:neomake_buffers)
+      call delete(l:bufinfo.file)
     endfor
     let s:neomake_buffers = {}
   endfunction
@@ -1053,7 +1060,7 @@ if isdirectory(expand(b:plugin_directory . '/neomake'))
     autocmd!
   augroup END
 
-  if get(g:, 'enable_neomake_ide')
+  if get(g:, 'neomake_enable_ide')
     " Map all the window moving commands to also call window moved
     nnoremap <silent> <C-W>r :wincmd r<CR> :call <sid>neomake_window_moved()<CR>
     nnoremap <silent> <C-W>R :wincmd R<CR> :call <sid>neomake_window_moved()<CR>
@@ -1138,7 +1145,7 @@ endif
 if isdirectory(expand(b:plugin_directory . '/vim-gutentags'))
   " Use a single cache directory.
   " 'ctags_cleanup' script can remove orphaned tags files
-  let g:gutentags_cache_dir = $DOTFILES . "/caches/ctags"
+  let g:gutentags_cache_dir = $DOTFILES . '/caches/ctags'
 
   " Only list files that are actually part of the project
   let g:gutentags_file_list_command = {
@@ -1189,10 +1196,10 @@ endif
 "////////////////"
 if isdirectory(expand(b:plugin_directory . '/vim-easy-align'))
   " Start interactive EasyAlign in visual mode (e.g. vipga)
-  xnoremap ga <Plug>(EasyAlign)
+  xmap ga <Plug>(EasyAlign)
 
   " Start interactive EasyAlign for a motion/text object (e.g. gaip)
-  nnoremap ga <Plug>(EasyAlign)
+  nmap ga <Plug>(EasyAlign)
 endif
 
 "///////////////"
@@ -1251,9 +1258,8 @@ endif
 " easymotion.vim "
 "////////////////"
 if isdirectory(expand(b:plugin_directory . '/vim-easymotion'))
-  nmap f <Plug>(easymotion-s)
+  nmap F <Plug>(easymotion-s)
 endif
-
 
 "////////////"
 " indentLine "

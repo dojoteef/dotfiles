@@ -19,6 +19,7 @@ packages=(
   git
   git-extras
   golang
+  golint
   htop
   jq
   libssl-dev
@@ -27,6 +28,9 @@ packages=(
   python-pip
   python3-dev
   python3-pip
+  pylint
+  pylint3
+  shellcheck
   silversearcher-ag
   telnet
   tmux
