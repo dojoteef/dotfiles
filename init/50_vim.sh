@@ -9,9 +9,7 @@ vim_plug="$HOME/.vim/autoload/plug.vim"
     https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
 
 # Download Vim plugins.
-export VIM_PROGRAM
-VIM_PROGRAM=${VIM_PROGRAM:="vim"}
-if [[ "$(type -P "$VIM_PROGRAM")" ]]; then
+if [[ "$(type -P vim)" ]]; then
   e_header "Updating vim plugins"
-  VIM_INSTALLING=1 $VIM_PROGRAM +PlugUpgrade +PlugUpdate +PlugClean! +qall
+  VIM_INSTALLING=1 vim +PlugUpgrade +PlugUpdate +PlugClean! +qall
 fi

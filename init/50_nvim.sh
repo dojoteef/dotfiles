@@ -103,12 +103,3 @@ if [[ "$(type -P nvim)" ]]; then
   fix_terminfo "screen-256color"
   fix_terminfo "xterm-256color"
 fi
-
-# Need this such that later uses of vim command (see 50_vim.sh and
-# 60_prompts.sh) use the correct vim.
-# 
-# This is disabled for now since vim-plug does not play nicely
-# with neovim when doing 'nvim +PlugInstall +qall'.
-# https://github.com/junegunn/vim-plug/issues/104
-# https://github.com/junegunn/vim-plug/issues/499
-# export VIM_PROGRAM='nvim'

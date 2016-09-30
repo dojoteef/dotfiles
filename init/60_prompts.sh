@@ -7,7 +7,7 @@ prompt_dir=$DOTFILES/caches/prompts
 
 # Create bash and tmux prompts using vim-airline themes
 # by using promptline and tmuxline respectively
-if [[ "$(type -P "$VIM")" ]]; then
+if [[ "$(type -P vim)" ]]; then
   echo "Updating bash prompt"
   # Must delete the previous prompt file because Tmuxline will
   # not overwrite the existing one. It shouldn't be modified
@@ -16,7 +16,7 @@ if [[ "$(type -P "$VIM")" ]]; then
 
   # Now generate the new snapshot
   VIM_INSTALLING=1 \
-    $VIM "+PromptlineSnapshot $prompt_dir/bash" +qall
+    vim "+PromptlineSnapshot $prompt_dir/bash" +qall
   if [[ "$(type -P tmux)" ]]; then
     echo "Updating tmux prompt"
     # Similar to Promptline, Tmuxline will not overwrite the snapshot.
@@ -25,7 +25,7 @@ if [[ "$(type -P "$VIM")" ]]; then
     # Have to convince Tmuxline that it's in a TMUX session otherwise
     # it will not run, even though it runs fine without being in a session.
     VIM_INSTALLING=1 TMUX="Installing" \
-      $VIM +Tmuxline "+TmuxlineSnapshot $prompt_dir/tmux" +qall
+      vim +Tmuxline "+TmuxlineSnapshot $prompt_dir/tmux" +qall
 
     # Remove 'status-utf8'. It is deprecated and generates a warning.
     # https://github.com/edkolev/tmuxline.vim/issues/53
@@ -35,5 +35,5 @@ if [[ "$(type -P "$VIM")" ]]; then
 
   # Now make sure to clean out tmuxline and promptline as they
   # should only exist during installation.
-  $VIM +PlugClean! +qall
+  vim +PlugClean! +qall
 fi
