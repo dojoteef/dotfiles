@@ -4,25 +4,24 @@ import AppKit
 import CoreText
 import Foundation
 
-let fileManager = NSFileManager.defaultManager()
-let libraryURLs = fileManager.URLsForDirectory(.LibraryDirectory, inDomains: .UserDomainMask)
+let libraryURLs = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)
 if libraryURLs.isEmpty {
   exit(0)
 }
 
 var userFonts : Set<String> = []
 for libraryURL in libraryURLs {
-  let resourceKeys = [NSURLNameKey]
-  let fontsURL = libraryURL.URLByAppendingPathComponent("Fonts", isDirectory: true)
-  let enumerator = fileManager.enumeratorAtURL(fontsURL,
+  let resourceKeys = [URLResourceKey.nameKey]
+  let fontsURL = libraryURL.appendingPathComponent("Fonts", isDirectory: true)
+  let enumerator = FileManager.default.enumerator(at:fontsURL,
     includingPropertiesForKeys: resourceKeys,
-    options: [.SkipsHiddenFiles, .SkipsPackageDescendants, .SkipsSubdirectoryDescendants],
+    options: [.skipsHiddenFiles, .skipsPackageDescendants, .skipsSubdirectoryDescendants],
     errorHandler: nil)
   for case let fontURL as NSURL in enumerator! {
     if let descriptors = CTFontManagerCreateFontDescriptorsFromURL(fontURL) as [AnyObject]? {
       for object in descriptors {
         let descriptor = object as! NSFontDescriptor
-        let fontName = descriptor.objectForKey(NSFontNameAttribute) as! String
+        let fontName = descriptor.object(forKey:NSFontNameAttribute) as! String
         userFonts.insert(fontName)
       }
     }
@@ -30,22 +29,22 @@ for libraryURL in libraryURLs {
 }
 
 let powerlineCharacterSet = NSMutableCharacterSet.init()
-powerlineCharacterSet.addCharactersInRange(NSMakeRange(0xE0A0, 0xE0A2 - 0xE0A0 + 1))
-powerlineCharacterSet.addCharactersInRange(NSMakeRange(0xE0B0, 0xE0B3 - 0xE0B0 + 1))
-powerlineCharacterSet.addCharactersInRange(NSMakeRange(0xE0A3, 0xE0A3 - 0xE0A3 + 1))
-powerlineCharacterSet.addCharactersInRange(NSMakeRange(0xE0B4, 0xE0C8 - 0xE0B4 + 1))
-powerlineCharacterSet.addCharactersInRange(NSMakeRange(0xE0CC, 0xE0D2 - 0xE0CC + 1))
-powerlineCharacterSet.addCharactersInRange(NSMakeRange(0xE0D4, 0xE0D4 - 0xE0D4 + 1))
+powerlineCharacterSet.addCharacters(in:NSMakeRange(0xE0A0, 0xE0A2 - 0xE0A0 + 1))
+powerlineCharacterSet.addCharacters(in:NSMakeRange(0xE0B0, 0xE0B3 - 0xE0B0 + 1))
+powerlineCharacterSet.addCharacters(in:NSMakeRange(0xE0A3, 0xE0A3 - 0xE0A3 + 1))
+powerlineCharacterSet.addCharacters(in:NSMakeRange(0xE0B4, 0xE0C8 - 0xE0B4 + 1))
+powerlineCharacterSet.addCharacters(in:NSMakeRange(0xE0CC, 0xE0D2 - 0xE0CC + 1))
+powerlineCharacterSet.addCharacters(in:NSMakeRange(0xE0D4, 0xE0D4 - 0xE0D4 + 1))
 
 let deviconCharacterSet = NSCharacterSet.init(range: NSMakeRange(0xE700, 0xE7C5 - 0xE700 + 1))
 
 let nerdFontCharacterSet = NSMutableCharacterSet.init()
-nerdFontCharacterSet.formUnionWithCharacterSet(powerlineCharacterSet)
-nerdFontCharacterSet.formUnionWithCharacterSet(deviconCharacterSet)
+nerdFontCharacterSet.formUnion(with:powerlineCharacterSet as CharacterSet)
+nerdFontCharacterSet.formUnion(with:deviconCharacterSet as CharacterSet)
 
 let nerdFontDescriptor = NSFontDescriptor.init(fontAttributes: [NSFontCharacterSetAttribute: nerdFontCharacterSet])
-for descriptor in nerdFontDescriptor.matchingFontDescriptorsWithMandatoryKeys([NSFontCharacterSetAttribute]) {
-  let fontName = descriptor.objectForKey(NSFontNameAttribute) as! String
+for descriptor in nerdFontDescriptor.matchingFontDescriptors(withMandatoryKeys:[NSFontCharacterSetAttribute]) {
+  let fontName = descriptor.object(forKey:NSFontNameAttribute) as! String
   if userFonts.contains(fontName) {
     print("\(fontName)")
   }

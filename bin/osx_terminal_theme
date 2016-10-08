@@ -3,19 +3,21 @@
 import AppKit
 import Foundation
 
-func archivedFontWithName(name: String, size: Float) -> NSData? {
-  if let font = NSFont(name: name, size: CGFloat(size)) {
-    return NSKeyedArchiver.archivedDataWithRootObject(font)
+func archivedFontWithName(name: String, size: Float?) -> Data? {
+  if let _size = size {
+    if let font = NSFont(name: name, size: CGFloat(_size)) {
+      return NSKeyedArchiver.archivedData(withRootObject:font)
+    }
   }
   return nil
 }
 
-func customizeColorScheme(inout colorScheme: [String:AnyObject], font: NSData?, fontHeight: Float?) {
+func customizeColorScheme(colorScheme: inout [String:Any], font: Data?, fontHeight: Float?) {
   if let _font = font {
-    colorScheme["Font"] = _font
+    colorScheme["Font"] = _font as Any
   }
   if let _fontHeight = fontHeight {
-    colorScheme["FontHeightSpacing"] = _fontHeight
+    colorScheme["FontHeightSpacing"] = _fontHeight as Any
   }
 }
 
@@ -25,7 +27,7 @@ func arguments() -> (themes: [String], parameters: [String:String]) {
 
   var bin = ""
   var key = ""
-  for arg in Process.arguments {
+  for arg in CommandLine.arguments {
     switch arg {
       case "-D", "--default":
         key = "default"
@@ -54,13 +56,13 @@ func arguments() -> (themes: [String], parameters: [String:String]) {
   return (themes, parameters)
 }
 
-func addTerminalTheme(inout defaults: [String:AnyObject], themeName: String, directory: NSString, font: NSData?, fontHeight: Float?) {
-  let terminalFile = directory.stringByAppendingPathComponent(themeName + ".terminal")
-  if var terminalTheme = NSDictionary(contentsOfFile: terminalFile) as? [String:AnyObject] {
+func addTerminalTheme(defaults: inout [String:Any], themeName: String, directory: NSString, font: Data?, fontHeight: Float?) {
+  let terminalFile = directory.appendingPathComponent(themeName + ".terminal")
+  if var terminalTheme = NSDictionary(contentsOfFile: terminalFile) as? [String:Any] {
     print("Adding Terminal theme: \(themeName)")
 
-    customizeColorScheme(&terminalTheme, font: font, fontHeight: fontHeight)
-    defaults[themeName] = terminalTheme
+    customizeColorScheme(colorScheme: &terminalTheme, font: font, fontHeight: fontHeight)
+    defaults[themeName] = terminalTheme as Any
   } else {
     print("Unable to load \(terminalFile)")
   }
@@ -70,23 +72,23 @@ let args = arguments()
 if args.themes.count > 0 {
   let parameters = args.parameters
   let fontName = parameters["font"] ?? "Osaka"
-  let fontSizeString : NSString = parameters["fontSize"] ?? "14"
-  let fontSize = fontSizeString.floatValue
-  let fontHeightString : NSString = parameters["fontHeightSpacing"] ?? "1"
-  let fontHeight = fontHeightString.floatValue
+  let fontSizeString = parameters["fontSize"] ?? "14"
+  let fontSize = Float(fontSizeString)
+  let fontHeightString = parameters["fontHeightSpacing"] ?? "1"
+  let fontHeight = Float(fontHeightString)
   let directory = (parameters["directory"] ?? ".") as NSString
-  let font = archivedFontWithName(fontName, size: fontSize)
-  if let defaults = NSUserDefaults(suiteName: "com.apple.Terminal") {
-    if var defaultThemes = defaults.dictionaryForKey("Window Settings") {
+  let font = archivedFontWithName(name: fontName, size: fontSize)
+  if let defaults = UserDefaults(suiteName: "com.apple.Terminal") {
+    if var defaultThemes = defaults.dictionary(forKey:"Window Settings") {
       for theme in args.themes {
-        addTerminalTheme(&defaultThemes, themeName: theme, directory: directory, font: font, fontHeight: fontHeight)
+        addTerminalTheme(defaults: &defaultThemes, themeName: theme, directory: directory, font: font, fontHeight: fontHeight)
       }
 
-      defaults.setObject(defaultThemes, forKey: "Window Settings")
+      defaults.set(defaultThemes, forKey: "Window Settings")
       if let defaultTheme = args.parameters["default"] {
         print("Setting \(defaultTheme) as the default theme.")
-        defaults.setObject(defaultTheme, forKey: "Startup Window Settings")
-        defaults.setObject(defaultTheme, forKey: "Default Window Settings")
+        defaults.set(defaultTheme, forKey: "Startup Window Settings")
+        defaults.set(defaultTheme, forKey: "Default Window Settings")
       }
     }
   }
