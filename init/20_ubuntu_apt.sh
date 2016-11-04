@@ -3,11 +3,6 @@
 # Ubuntu-only stuff. Abort if not Ubuntu.
 (is_ubuntu && sudo_allowed) || exit 1
 
-# Update APT.
-e_header "Updating APT"
-sudo apt-get -qq update
-sudo apt-get -qq dist-upgrade
-
 # Install APT packages.
 # Consider universal-ctags when a stable release is available https://ctags.io
 packages=(
@@ -40,20 +35,7 @@ packages=(
   vim # Have to have the latest vim for YouCompleteMe and UltiSnips
 )
 
-installed=(
-  $(dpkg --get-selections |
-  grep -v deinstall |
-  awk -F '[: \t]' '{print $1}' |
-  grep -F -x "$(for p in "${packages[@]}"; do printf "%s %s " "-e" "$p"; done)")
-)
-packages=($(echo "${installed[@]}" "${packages[@]}" | tr ' ' '\n' | sort | uniq -u))
-
-if (( ${#packages[@]} > 0 )); then
-  e_header "Installing APT packages: ${packages[*]}"
-  for package in "${packages[@]}"; do
-    sudo apt-get -qq install "$package"
-  done
-fi
+install_apt_packages "${packages[*]}"
 
 # Unfortunately hub is not available on APT so get it from the latest github release
 if [[ ! "$(type -P hub)" ]]; then
