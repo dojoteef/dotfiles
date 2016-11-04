@@ -70,11 +70,13 @@ Plug 'airblade/vim-rooter'
 
 " Syntax
 Plug 'dojoteef/neomake', { 'branch': 'shellcheck_improvements' }
+      \ | Plug 'dojoteef/neomake-autolint'
 Plug 'sheerun/vim-polyglot'
 Plug 'Yggdroot/indentLine'
 Plug 'ynkdir/vim-vimlparser', { 'for': 'vim' }
       \ | Plug 'syngan/vim-vimlint', { 'for': 'vim' }
 Plug 'junegunn/vader.vim', { 'on': 'Vader', 'for': 'vader' }
+" Plug 'w0rp/ale' " TODO: Checkout when you have time
 
 " Tags
 if executable('ctags')
@@ -89,6 +91,7 @@ endif
 Plug 'SirVer/ultisnips' | Plug 'honza/vim-snippets'
 Plug 'Valloric/YouCompleteMe', { 'do': b:ycm_install_cmd }
       \ | Plug 'rdnetto/YCM-Generator', { 'branch': 'stable'}
+" Plug 'maralla/completor.vim' " TODO: Checkout when you have time
 
 " Search & Navigation
 Plug 'osyo-manga/vim-over'
@@ -203,7 +206,7 @@ endif
 autocmd vimrc VimEnter * :set scrolloff=0
 
 " Automatically combine location list entries into the quickfix list
-autocmd vimrc BufWinEnter,BufWinLeave <buffer> call s:quickfix_combine()
+autocmd vimrc BufWinEnter,BufWinLeave,BufWipeout <buffer> call s:quickfix_combine()
 
 """"""""""""""""""""""""
 " FORMATTING
@@ -315,23 +318,6 @@ function! s:unlet(...)
       execute 'unlet' l:varname
     endif
   endfor
-endfunction
-
-function! s:funcref(func)
-  return type(a:func) == type('') ? function(a:func) : a:func
-endfunction
-
-function! s:repeat_while_true(func, ...)
-  let l:Func = s:funcref(a:func)
-  let l:continue = call(l:Func, a:000)
-  while l:continue != v:null
-    let l:continue = call(l:Func, a:000)
-  endwhile
-endfunction
-
-" See http://stackoverflow.com/a/17184285
-function! s:script_function(name)
-  return substitute(a:name, '^s:', matchstr(expand('<sfile>'), '<SNR>\d\+_'),'')
 endfunction
 
 " Combine location list entries of visible buffers into the quickfix list
@@ -561,227 +547,35 @@ if isdirectory(expand(s:plugin_directory . '/ultisnips'))
   autocmd vimrc FileType xml UltiSnipsAddFiletypes xml
 endif
 
-"///////////"
+"/////////"
 " Neomake "
-"///////////"
+"/////////"
 if isdirectory(expand(s:plugin_directory . '/neomake'))
-  " Only enable my makeshift neomake autolint if neomake has
-  " asynchronous job support which makes the lint
-  " as you type approach work without constant pauses.
-  let g:neomake_autolint = neomake#has_async_support()
-
-  " Where to cache temporary files used for linting
-  " unwritten buffers.
-  let g:neomake_autolint_cachedir = $DOTFILES . '/caches/vim'
-
-  " The number of milliseconds to wait before running
-  " another neomake lint over the file.
-  let g:neomake_autolint_updatetime = 250
-
   " For debugging
   "let g:neomake_verbose = 3
 
-  let s:neomake_buffers = {}
-  function! s:neomake_temp_filename(basename)
-    let l:fname = expand(a:basename.':p:t')
-    let l:tmpdir = fnamemodify(get(g:, 'neomake_autolint_cachedir', tempname()), ':p:h')
-    return fnameescape(join([l:tmpdir, l:fname], '/'))
-  endfunction
-
-  " Setup per buffer makers that use a temporary file for auto linting
-  let s:neomake_makers_by_buffer = {}
-  function! s:neomake_get_makers(bufnr)
-    if !has_key(s:neomake_makers_by_buffer, a:bufnr)
-      let s:neomake_makers_by_buffer[a:bufnr] = {}
-    endif
-    let l:makers_for_buffer = s:neomake_makers_by_buffer[a:bufnr]
-
-    let l:ft = &filetype
-    let l:makers = []
-    let l:maker_names = neomake#GetEnabledMakers(l:ft)
-    let l:tmpfile = s:neomake_temp_filename('%')
-    for l:maker_name in l:maker_names
-      let l:maker = neomake#GetMaker(l:maker_name, l:ft)
-      let l:full_maker_name = l:ft.'_'.l:maker_name
-
-      " Some makers (like the default go makers) operate on an entire
-      " directory which breaks for this file based linting approach.
-      " If 'append_file' exists and is 0 then this is a maker which
-      " operates on the directory rather than the file so skip it.
-      if exists('l:maker') && get(l:maker, 'append_file', 1)
-        if !exists('l:makers_for_buffer[l:full_maker_name]')
-          " Make sure we lint the tempfile
-          let l:maker.append_file = 0
-          let l:index = index(l:maker.args, '%:p')
-          if l:index > -1
-            let l:maker.args[l:index] = l:tmpfile
-          else
-            call add(l:maker.args, l:tmpfile)
-          endif
-
-          " Store off the original values
-          let l:maker.obufnr = a:bufnr
-          if exists('l:maker.postprocess')
-            let l:maker.opostprocess = s:funcref(l:maker.postprocess)
-          endif
-
-          " Wrap the existing mapexpr to do extra processing
-          " after it completes
-          let l:maker.mapexpr = printf('substitute(%s, "%s", "%s", "g")',
-                \ get(l:maker, 'mapexpr', 'v:val'),
-                \ l:tmpfile, expand('%'))
-
-          " Wrap the existing post process to do extra processing
-          " after it completes
-          function! l:maker.postprocess(entry)
-            " If call the original postprocess if it exists
-            if exists('l:self.opostprocess')
-              call l:self.opostprocess(a:entry)
-            endif
-
-            " The neomake job was executed on the tempfile, so fix up
-            " the location list entry to point to the real buffer.
-            let a:entry.bufnr = l:self.obufnr
-
-            " If no error type is provided default to error
-            if !exists('a:entry.type') || empty(a:entry.type)
-              let a:entry.type = 'E'
-            endif
-          endfunction
-
-          let l:maker.name = l:full_maker_name
-          let l:makers_for_buffer[l:full_maker_name] = l:maker
-        endif
-
-        call add(l:makers, l:maker)
-      endif
-    endfor
-
-    return l:makers
-  endfunction
-
-  function! s:neomake_setup_autolint()
-    let l:bufnr = bufnr('%')
-    if has_key(s:neomake_buffers, l:bufnr)
-      return
-    endif
-
-    let l:makers =  s:neomake_get_makers(l:bufnr)
-    if len(l:makers) > 0
-      " This is a filetype with makers
-      let s:neomake_buffers[l:bufnr] = {
-            \ 'bufnr': l:bufnr,
-            \ 'changedtick': -1,
-            \ 'makers': l:makers,
-            \ 'loclist': [],
-            \ 'tmpfile': s:neomake_temp_filename('%'),
-            \ 'timerid': -1
-            \ }
-
-      " Run neomake on the initial load of the buffer to check for errors
-      call s:neomake_update(s:neomake_buffers[l:bufnr])
-
-      """"""""""""""""""""""""""""""""""""""""""""""""""""""""
-      " Text Changed Handling
-      """"""""""""""""""""""""""""""""""""""""""""""""""""""""
-      autocmd s:neomake TextChanged,TextChangedI <buffer>
-            \ call s:neomake_onchange(bufnr('%'))
-    endif
-  endfunction
-
-  function! s:neomake_onchange(bufnr, ...)
-    let l:error = ''
-    let l:status = ''
-    let l:bufinfo = get(s:neomake_buffers, a:bufnr, {})
-
-    let l:lasttimerid = l:bufinfo.timerid
-    let l:bufinfo.timerid = -1
-    if l:lasttimerid != -1
-      call timer_stop(l:lasttimerid)
-    endif
-
-    let l:bufinfo.timerid = timer_start(g:neomake_autolint_updatetime,
-          \ s:script_function('s:neomake_tryupdate'))
-  endfunction
-
-  function! s:neomake_tryupdate_nvim(jobid, data, event) dict
-    let l:bufinfo = get(s:neomake_buffers, l:self.bufnr, {})
-
-    " This was a canceled update
-    if a:data != 0 || a:jobid != l:bufinfo.updateid
-      return
-    endif
-
-    let l:bufinfo.updateid = -1
-    call s:neomake_tryupdate(l:bufinfo)
-  endfunction
-
-  function! s:neomake_tryupdate(timerid)
-    let l:bufinfo = {}
-    for l:info in values(s:neomake_buffers)
-      if l:info.timerid == a:timerid
-        let l:bufinfo = l:info
-        let l:bufinfo.timerid = -1
-        break
-      endif
-    endfor
-
-    " Could not find the buffer associated with the timer
-    if empty(l:bufinfo)
-      return
-    endif
-
-    call s:neomake_update(l:bufinfo)
-  endfunction
-
-  function! s:neomake_update(bufinfo, ...)
-    " Need the original filetype in order to set the new buffer to the
-    " correct filetype (it might not be automatically detected)
-    let l:ft = &filetype
-
-    " Write the temporary file
-    call neomake#utils#DebugMessage('Autolint: Writing temporary file.')
-    silent! keepalt noautocmd call writefile(getline(1, '$'), s:neomake_temp_filename('%'))
-
-    " Run neomake in file mode with the updated makers
-    " Do not run silent incase of verbose output (g:neomake_verbose)
-    call neomake#Make(1, a:bufinfo.makers)
-  endfunction
-
-  function! s:neomake_remove(file)
-    " Since this is called for every BufWipeout ensure it is a tracked buffer
-    let l:bufnr = bufnr(a:file)
-    let l:bufinfo = get(s:neomake_buffers, l:bufnr, {})
-
-    if len(l:bufinfo) > 0
-      call delete(l:bufinfo.tmpfile)
-      call remove(s:neomake_buffers, l:bufnr)
-    endif
-  endfunction
-
-  function! s:neomake_remove_all()
-    for l:bufinfo in values(s:neomake_buffers)
-      call delete(l:bufinfo.tmpfile)
-    endfor
-    let s:neomake_buffers = {}
-  endfunction
-
-  " Create neomake autocmd group and remove any existing neomake autocmds,
-  " in case .vimrc is re-sourced.
-  augroup s:neomake
-    autocmd!
-  augroup END
-
-  if get(g:, 'neomake_autolint')
-    " Auto commands for managing the autolinting
-    autocmd s:neomake BufWinEnter * call s:neomake_setup_autolint()
-    autocmd s:neomake VimLeavePre * call s:neomake_remove_all()
-    autocmd s:neomake BufWipeout * call s:neomake_remove('<afile>')
-  endif
-
   let g:airline#extensions#neomake#enabled = get(g:, 'airline_installed')
-  autocmd s:neomake User NeomakeFinished,NeomakeCountsChanged nested
+  autocmd vimrc User NeomakeFinished,NeomakeCountsChanged nested
         \ call s:quickfix_combine()
+endif
+
+"//////////////////"
+" Neomake-Autolint "
+"//////////////////"
+if isdirectory(expand(s:plugin_directory . '/neomake-autolint'))
+  let &runtimepath.=','.expand(s:plugin_directory . '/neomake-autolint')
+
+  " Where to cache temporary files used for linting unwritten buffers.
+  let g:neomake_autolint_cachedir = $DOTFILES . '/caches/vim'
+
+  " The number of milliseconds to wait before running another neomake lint
+  " over the file.
+  let g:neomake_autolint_updatetime = 250
+
+  " Whether to keep the sign column showing all the time. Default to on. With
+  " it off it can be quite annoying as the sign column flashes open/closed
+  " during autolinting.
+  let g:neomake_autolint_sign_column_always = 1
 endif
 
 "////////////////"
