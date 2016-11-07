@@ -69,8 +69,7 @@ Plug 'tpope/vim-fugitive'
 Plug 'airblade/vim-rooter'
 
 " Syntax
-Plug 'dojoteef/neomake', { 'branch': 'shellcheck_improvements' }
-      \ | Plug 'dojoteef/neomake-autolint'
+Plug 'dojoteef/neomake' | Plug 'dojoteef/neomake-autolint'
 Plug 'sheerun/vim-polyglot'
 Plug 'Yggdroot/indentLine'
 Plug 'ynkdir/vim-vimlparser', { 'for': 'vim' }
@@ -118,6 +117,7 @@ Plug 'tpope/vim-sensible'
 Plug 'tpope/vim-surround'
 Plug 'tpope/vim-repeat'
 Plug 'tpope/vim-commentary'
+Plug 'tpope/vim-dispatch'
 
 " Dev icons (must be last)
 " https://github.com/ryanoasis/vim-devicons#step-3-configure-vim
@@ -165,6 +165,20 @@ else
   colorscheme desert
 endif
 syntax enable
+
+function! s:AddSyntaxComments(keywords)
+  " Only execute if the syntax type is known
+  if empty(&syntax)
+    return
+  endif
+
+  execute printf('syntax keyword %sTodo containedin=%sComment %s',
+        \ &syntax, &syntax, join(a:keywords))
+endfunction
+
+" Additional highlighting for comment keywords (for most filetypes only TODO,
+" FIXME, and XXX exist by default)
+autocmd vimrc FileType * call s:AddSyntaxComments(['BUG', 'HACK', 'NOTE', 'INFO'])
 
 " There is a potential for screen flicker, these next two settings
 " should help address any screen flicker issues whether running in tmux or
