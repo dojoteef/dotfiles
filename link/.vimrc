@@ -75,6 +75,7 @@ Plug 'Yggdroot/indentLine'
 Plug 'ynkdir/vim-vimlparser', { 'for': 'vim' }
       \ | Plug 'syngan/vim-vimlint', { 'for': 'vim' }
 Plug 'junegunn/vader.vim', { 'on': 'Vader', 'for': 'vader' }
+Plug 'romainl/vim-qf'
 " Plug 'w0rp/ale' " TODO: Checkout when you have time
 
 " Tags
@@ -212,6 +213,10 @@ set timeoutlen=250
 if has('mouse_sgr')
   set ttymouse=sgr
 endif
+
+" Since python uses whitespace to denote structures, foldmethod=indent works
+" reasonably well, so use it rather than a plugin.
+autocmd vimrc FileType python set foldmethod=indent
 
 " Override default in sensible.vim, do not include context above/below cursor
 " when scrolling. Have to implement it this way because sensible.vim will
@@ -351,7 +356,7 @@ function! s:quickfix_combine()
     let l:winstate = winsaveview()
     let l:winnr = winnr()
 
-    " Open/close quickfix window
+    " Open the quickfix window
     cwindow 5
 
     " Restore state if needed
@@ -372,18 +377,12 @@ endfunction
 if executable('ag')
   " Use ag over grep
   set grepprg=ag\ --nogroup\ --nocolor
-
-  " bind k to grep word under cursor
-  noremap <leader>k :lgrep! "\b<C-R><C-W>\b"<CR>:lwindow<CR>
-
-  " New command :Ag which takes standard ag arguments
-  command! -nargs=+ -complete=file -bar Ag silent! lgrep! <args>|lwindow|redraw!
 endif
 
 "/////////////////////"
 " FZF
 "/////////////////////"
-if executable('fzf')
+if isdirectory(expand(s:plugin_directory, 'fzf.vim'))
   nnoremap <leader>h :Helptags<CR>
   nnoremap <silent> <C-p> :Files<CR>
 endif
@@ -535,6 +534,7 @@ endif
 "/////////"
 if isdirectory(expand(s:plugin_directory . '/tagbar'))
   nnoremap <leader>t :TagbarToggle<CR>
+  nnoremap <leader>T :TagbarOpen fj<CR>
 endif
 
 "/////////"
@@ -571,6 +571,13 @@ if isdirectory(expand(s:plugin_directory . '/neomake'))
   let g:airline#extensions#neomake#enabled = get(g:, 'airline_installed')
   autocmd vimrc User NeomakeFinished,NeomakeCountsChanged nested
         \ call s:quickfix_combine()
+
+  let g:neomake_python_pylint_args = [
+        \ '--disable=I,R',
+        \ '--output-format=text',
+        \ '--msg-template="{path}:{line}:{column}:{C}: [{symbol}] {msg}"',
+        \ '--reports=no'
+        \ ]
 endif
 
 "//////////////////"
@@ -590,6 +597,24 @@ if isdirectory(expand(s:plugin_directory . '/neomake-autolint'))
   " it off it can be quite annoying as the sign column flashes open/closed
   " during autolinting.
   let g:neomake_autolint_sign_column_always = 1
+endif
+
+"/////////"
+" vim-qf
+"/////////"
+if isdirectory(expand(s:plugin_directory . '/vim-qf'))
+  nmap <leader>l <Plug>QfLtoggle
+  nmap <leader>q <Plug>QfCtoggle
+
+  nmap <leader>j <Plug>QfLprevious
+  nmap <leader>k <Plug>QfLnext
+
+  nmap <leader>J <Plug>QfCprevious
+  nmap <leader>K <Plug>QfCnext
+
+  let g:qf_mapping_ack_style = 1
+  let g:qf_auto_open_loclist = 0
+  let g:qf_auto_open_quickfix = 0
 endif
 
 "////////////////"
