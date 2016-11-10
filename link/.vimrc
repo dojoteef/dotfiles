@@ -606,11 +606,11 @@ if isdirectory(expand(s:plugin_directory . '/vim-qf'))
   nmap <leader>l <Plug>QfLtoggle
   nmap <leader>q <Plug>QfCtoggle
 
-  nmap <leader>j <Plug>QfLprevious
-  nmap <leader>k <Plug>QfLnext
+  nmap <leader>j <Plug>QfCnext
+  nmap <leader>k <Plug>QfCprevious
 
-  nmap <leader>J <Plug>QfCprevious
-  nmap <leader>K <Plug>QfCnext
+  nmap <leader>J <Plug>QfLnext
+  nmap <leader>K <Plug>QfLprevious
 
   let g:qf_mapping_ack_style = 1
   let g:qf_auto_open_loclist = 0
