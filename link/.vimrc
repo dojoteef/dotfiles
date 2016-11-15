@@ -1,5 +1,5 @@
 """"""""""""""""""""""""
-" GLOBAL VARIABLES
+" GLOBAL VARIABLES {{{1
 """"""""""""""""""""""""
 " Must be before any multibyte characters are used
 scriptencoding utf-8
@@ -25,7 +25,7 @@ endif
 let s:plugin_directory = '~/.vim/plugged'
 
 """"""""""""""""""""""""
-" Plugins
+" INSTALL PLUGINS {{{1
 """"""""""""""""""""""""
 " https://github.com/junegunn/vim-plug
 " Reload .vimrc and :PlugInstall to install plugins.
@@ -128,7 +128,7 @@ endif
 call plug#end()
 
 """"""""""""""""""""""""
-" GENERAL
+" GENERAL {{{1
 """"""""""""""""""""""""
 " Local dirs
 set backupdir=$DOTFILES/caches/vim
@@ -146,7 +146,7 @@ augroup vimrc
 augroup END
 
 """"""""""""""""""""""""
-" VISUAL SETTINGS
+" VISUAL SETTINGS {{{1
 """"""""""""""""""""""""
 set cursorline " Highlight current line
 set number " Enable line numbers.
@@ -158,13 +158,7 @@ set noshowmode " Don't show the current mode (airline.vim takes care of us)
 set laststatus=2 " Always show status line
 set colorcolumn=+1 " Make it obvious where text would wrap with 'textwidth'
 set background=dark
-
-" Set colorscheme to zenburn if it exists
-if isdirectory(expand(s:plugin_directory . '/Zenburn'))
-  colorscheme zenburn
-else
-  colorscheme desert
-endif
+colorscheme desert
 syntax enable
 
 function! s:AddSyntaxComments(keywords)
@@ -201,10 +195,15 @@ autocmd vimrc InsertEnter * :set norelativenumber
 autocmd vimrc InsertLeave * :set relativenumber
 
 """"""""""""""""""""""""
-" USER INTERFACE
+" USER INTERFACE {{{1
 """"""""""""""""""""""""
-set splitbelow " New split goes bottom
-set splitright " New split goes right
+" New split goes on top mainly so preview window does not conflict with the
+" completion popup.
+"
+" NOTE: If I can think of a better solution to have it splitbelow normally
+" and preview window gets a split above I might revisit this.
+set nosplitbelow
+set splitright " New split goes to the right
 set hidden " When a buffer is brought to foreground, remember undo history and marks.
 set report=0 " Show all changes.
 set mouse=a " Enable mouse in all modes.
@@ -215,8 +214,9 @@ if has('mouse_sgr')
 endif
 
 " Since python uses whitespace to denote structures, foldmethod=indent works
-" reasonably well, so use it rather than a plugin.
-autocmd vimrc FileType python set foldmethod=indent
+" reasonably well, so use it rather than a plugin. Additionally set a
+" textwidth of 100 (PEP8 allows for lines up to 100 characters if desired).
+autocmd vimrc FileType python set foldmethod=indent textwidth=100
 
 " Override default in sensible.vim, do not include context above/below cursor
 " when scrolling. Have to implement it this way because sensible.vim will
@@ -228,7 +228,7 @@ autocmd vimrc VimEnter * :set scrolloff=0
 autocmd vimrc BufWinEnter,BufWinLeave,BufWipeout <buffer> call s:quickfix_combine()
 
 """"""""""""""""""""""""
-" FORMATTING
+" FORMATTING {{{1
 """"""""""""""""""""""""
 set shiftwidth=2 " The # of spaces for indenting.
 set softtabstop=2 " Tab key results in 2 spaces
@@ -238,7 +238,7 @@ set nojoinspaces " Only insert single space after a '.', '?' and '!' with a join
 set hlsearch " Highlight searches
 
 """"""""""""""""""""""""
-" KEYMAPPINGS
+" KEYMAPPINGS {{{1
 """"""""""""""""""""""""
 " Change mapleader
 let g:mapleader=','
@@ -260,7 +260,7 @@ noremap <silent> <leader>pp :set invpaste paste?<CR>
 cnoremap w!! w !sudo tee > /dev/null %
 
 """"""""""""""""""""""""
-" FILE TYPES
+" FILE TYPES {{{1
 """"""""""""""""""""""""
 autocmd vimrc BufRead .vimrc,*.vim set keywordprg=:help
 autocmd vimrc BufRead,BufNewFile *.md set filetype=markdown
@@ -287,11 +287,12 @@ endif
 set wildignore+=*.jpg,*.jpeg,*.gif,*.png,*.gif,*.psd,*.o,*.obj
 
 """"""""""""""""""""""""
-" GENERAL FUNCTIONS
+" GENERAL FUNCTIONS {{{1
 """"""""""""""""""""""""
 " Get all windows in all tabs or in a specific tab
 " Looks like this functionality does not exist in vim, but might be coming:
 " https://groups.google.com/forum/#!topic/vim_dev/rbHieR3rEnc
+" FUNCTION: s:bufallwinnr(bufnr, ...) {{{2
 function! s:bufallwinnr(bufnr, ...)
   " In order to get all the windows for a buffer, first loop over all the tab
   " pages, get all the windows in each tab page and determine which buffer is
@@ -322,6 +323,7 @@ function! s:bufallwinnr(bufnr, ...)
   return l:tabwinnr
 endfunction
 
+" FUNCTION: s:find_window(...) {{{2
 function! s:find_window(...)
   let l:winvar = get(a:, '1', '')
   if exists(l:winvar)
@@ -329,6 +331,7 @@ function! s:find_window(...)
   endif
 endfunction
 
+" FUNCTION: s:unlet(...) {{{2
 function! s:unlet(...)
   let l:prefix = a:1
   for l:var in a:2
@@ -339,6 +342,7 @@ function! s:unlet(...)
   endfor
 endfunction
 
+" FUNCTION: s:quickfix_combine() {{{2
 " Combine location list entries of visible buffers into the quickfix list
 function! s:quickfix_combine()
   let l:combined = []
@@ -367,33 +371,59 @@ function! s:quickfix_combine()
   endif
 endfunction
 
+" FUNCTION: s:determine_slash() {{{2
+function! s:determine_slash() abort
+  let s:slash = &shellslash || !exists('+shellslash') ? '/' : '\'
+endfunction
+call s:determine_slash()
+
+" FUNCTION: s:script_function() {{{2
+function! s:script_function(func) abort
+  " See http://stackoverflow.com/a/17184285
+  return substitute(a:func, '^s:', matchstr(expand('<sfile>'), '<SNR>\d\+_'),'')
+endfunction
+
 """"""""""""""""""""""""
-" PLUGINS
+" SETUP PLUGINS {{{1
 """"""""""""""""""""""""
 
 "/////////////////////"
-" The Silver Searcher "
+" Shared Functions {{{2
+"/////////////////////"
+let s:active_plugins = {}
+function! s:PlugActive(plug) abort
+  return get(s:active_plugins, a:plug, has_key(g:plugs, a:plug) &&
+        \ isdirectory(expand(join([s:plugin_directory, a:plug], s:slash))))
+endfunction
+
+"/////////////////////"
+" Zenburn {{{2
+"/////////////////////"
+" Set colorscheme to zenburn if it exists
+if s:PlugActive('Zenburn')
+  colorscheme zenburn
+endif
+
+"/////////////////////"
+" The Silver Searcher {{{2
 "/////////////////////"
 if executable('ag')
   " Use ag over grep
   set grepprg=ag\ --nogroup\ --nocolor
 endif
 
-"/////////////////////"
-" FZF
-"/////////////////////"
-if isdirectory(expand(s:plugin_directory, 'fzf.vim'))
+"/////"
+" FZF {{{2
+"/////"
+if s:PlugActive('fzf.vim')
   nnoremap <leader>h :Helptags<CR>
   nnoremap <silent> <C-p> :Files<CR>
 endif
 
 "/////////"
-" Airline "
+" Airline {{{2
 "/////////"
-if isdirectory(expand(s:plugin_directory . '/vim-airline'))
-  " Let other plugins know vim-airline is installed
-  let g:airline_installed = 1
-
+if s:PlugActive('vim-airline')
   " See https://github.com/vim-airline/vim-airline/issues/1125
   let g:airline_exclude_preview = 1
 
@@ -454,9 +484,9 @@ if isdirectory(expand(s:plugin_directory . '/vim-airline'))
 endif
 
 "////////////"
-" promptline "
+" promptline {{{2
 "////////////"
-if g:vim_installing && isdirectory(expand(s:plugin_directory . '/promptline.vim'))
+if g:vim_installing && s:PlugActive('promptline.vim')
   " promptline (needs to be after the plugins are activated since it uses a
   " function from promptline which hasn't been sourced yet...)
   let g:promptline_theme = 'airline'
@@ -470,18 +500,18 @@ if g:vim_installing && isdirectory(expand(s:plugin_directory . '/promptline.vim'
 endif
 
 "////////////"
-" tmuxline "
+" tmuxline {{{2
 "////////////"
-if g:vim_installing && isdirectory(expand(s:plugin_directory . '/tmuxline.vim'))
+if g:vim_installing && s:PlugActive('tmuxline.vim')
   " tmuxline
   let g:tmuxline_theme = 'airline'
   let g:tmuxline_powerline_separators = g:airline_powerline_fonts
 endif
 
 "//////////"
-" NERDTree "
+" NERDTree {{{2
 "//////////"
-if isdirectory(expand(s:plugin_directory . '/nerdtree'))
+if s:PlugActive('nerdtree')
   let g:NERDTreeAutoDeleteBuffer = 1
   let g:NERDTreeMinimalUI = 1
   let g:NERDTreeMouseMode = 2
@@ -530,26 +560,33 @@ if isdirectory(expand(s:plugin_directory . '/nerdtree'))
 endif
 
 "/////////"
-" Tagbar
+" Tagbar {{{2
 "/////////"
-if isdirectory(expand(s:plugin_directory . '/tagbar'))
+if s:PlugActive('tagbar')
   nnoremap <leader>t :TagbarToggle<CR>
   nnoremap <leader>T :TagbarOpen fj<CR>
 endif
 
 "/////////"
-" Signify "
+" Signify {{{2
 "/////////"
-if isdirectory(expand(s:plugin_directory . '/vim-signify'))
+if s:PlugActive('vim-signify')
   let g:signify_vcs_list = ['git']
 endif
 
 "///////////"
-" UltiSnips "
+" UltiSnips {{{2
 "///////////"
-if isdirectory(expand(s:plugin_directory . '/ultisnips'))
-  let g:UltiSnipsJumpForwardTrigger='<c-b>'
-  let g:UltiSnipsJumpBackwardTrigger='<c-z>'
+if s:PlugActive('ultisnips')
+  " Make <Enter> expand snippets (only when the popup menu is visible),
+  " otherwise it simply inserts a carriage return as expected.
+  let g:UltiSnipsExpandTrigger = '<Nop>'
+	inoremap <expr> <CR> pumvisible() ?
+        \ '<C-R>=UltiSnips#ExpandSnippet()<CR>' : '<CR>'
+
+  let g:UltiSnipsJumpForwardTrigger='<TAB>'
+  let g:UltiSnipsJumpBackwardTrigger='<S-TAB>'
+
   autocmd vimrc FileType c UltiSnipsAddFiletypes c
   autocmd vimrc FileType cpp UltiSnipsAddFiletypes cpp
   autocmd vimrc FileType css UltiSnipsAddFiletypes css
@@ -562,13 +599,16 @@ if isdirectory(expand(s:plugin_directory . '/ultisnips'))
 endif
 
 "/////////"
-" Neomake "
+" Neomake {{{2
 "/////////"
-if isdirectory(expand(s:plugin_directory . '/neomake'))
+if s:PlugActive('neomake')
   " For debugging
   "let g:neomake_verbose = 3
+  autocmd vimrc ColorScheme,VimEnter *
+        \ highlight! link NeomakeErrorSign Error
+        \ | highlight! link NeomakeWarningSign Debug
 
-  let g:airline#extensions#neomake#enabled = get(g:, 'airline_installed')
+  let g:airline#extensions#neomake#enabled = s:PlugActive('vim-airline')
   autocmd vimrc User NeomakeFinished,NeomakeCountsChanged nested
         \ call s:quickfix_combine()
 
@@ -581,11 +621,9 @@ if isdirectory(expand(s:plugin_directory . '/neomake'))
 endif
 
 "//////////////////"
-" Neomake-Autolint "
+" Neomake-Autolint {{{2
 "//////////////////"
-if isdirectory(expand(s:plugin_directory . '/neomake-autolint'))
-  let &runtimepath.=','.expand(s:plugin_directory . '/neomake-autolint')
-
+if s:PlugActive('neomake-autolint')
   " Where to cache temporary files used for linting unwritten buffers.
   let g:neomake_autolint_cachedir = $DOTFILES . '/caches/vim'
 
@@ -600,9 +638,9 @@ if isdirectory(expand(s:plugin_directory . '/neomake-autolint'))
 endif
 
 "/////////"
-" vim-qf
+" vim-qf  {{{2
 "/////////"
-if isdirectory(expand(s:plugin_directory . '/vim-qf'))
+if s:PlugActive('vim-qf')
   nmap <leader>l <Plug>QfLtoggle
   nmap <leader>q <Plug>QfCtoggle
 
@@ -618,25 +656,47 @@ if isdirectory(expand(s:plugin_directory . '/vim-qf'))
 endif
 
 "////////////////"
-" vim-commentary "
+" vim-commentary {{{2
 "////////////////"
-if isdirectory(expand(s:plugin_directory . '/vim-commentary'))
+if s:PlugActive('vim-commentary')
   " example support for apache comments
   "autocmd vimrc FileType apache setlocal commentstring=#\ %s
 endif
 
 "///////////////"
-" YouCompleteMe "
+" YouCompleteMe {{{2
 "///////////////"
-if isdirectory(expand(s:plugin_directory . '/YouCompleteMe'))
+if s:PlugActive('YouCompleteMe')
+  set completeopt-=preview
+
+  " Vim default is <C-X><C-O> so keep it that way
+  let g:ycm_key_invoke_completion = '<Nop>'
   let g:ycm_key_list_select_completion = ['<TAB>', '<Down>']
   let g:ycm_key_list_previous_completion = ['<S-TAB>', '<Up>']
+
+  function! s:ToggleYcmDoc()
+    try
+      wincmd P
+    catch /^Vim\%((\a\+)\)\=:E441/
+      silent! YcmCompleter GetDoc
+      return
+    endtry
+
+    silent! pclose!
+  endfunction
+
+  execute printf('inoremap <C-E> <C-R>=execute("call %s()")<CR>',
+        \ s:script_function('s:ToggleYcmDoc'))
+
+  nnoremap <leader>yg :YcmCompleter GoTo<CR>
+  nnoremap <leader>yd :YcmCompleter GetDoc<CR>
+  nnoremap <leader>yr :YcmCompleter GoToReferences<CR>
 endif
 
 "//////////////////////"
-" vim-multiple-cursors "
+" vim-multiple-cursors {{{2
 "//////////////////////"
-if isdirectory(expand(s:plugin_directory . '/vim-multiple-cursors'))
+if s:PlugActive('vim-multiple-cursors')
   " Fix YouCompleteMe with vim-multiple-cursors
   " (https://github.com/terryma/vim-multiple-cursors/issues/122#issuecomment-114654967)
   " Called once right before you start selecting multiple cursors
@@ -654,21 +714,18 @@ if isdirectory(expand(s:plugin_directory . '/vim-multiple-cursors'))
   endfunction
 endif
 
-"///////////////"
-" vim-rooter "
-"///////////////"
-if isdirectory(expand(s:plugin_directory . '/vim-rooter'))
-  " Let other plugins know vim-rooter is installed
-  let g:rooter_installed = 1
-
+"////////////"
+" vim-rooter {{{2
+"////////////"
+if s:PlugActive('vim-rooter')
   let g:rooter_use_lcd = 1
   let g:rooter_silent_chdir = 1
 endif
 
 "///////////////"
-" vim-gutentags "
+" vim-gutentags  {{{2
 "///////////////"
-if isdirectory(expand(s:plugin_directory . '/vim-gutentags'))
+if s:PlugActive('vim-gutentags')
   let g:gutentags_define_advanced_commands = 1
 
   " Only list files that are actually part of the project
@@ -680,7 +737,7 @@ if isdirectory(expand(s:plugin_directory . '/vim-gutentags'))
         \ }
 
   " Update status line if airline is installed
-  if get(g:, 'airline_installed')
+  if s:PlugActive('vim-airline')
     " Add vim-gutentags status
     function! GutentagsStatus(...)
       let w:airline_section_x = get(w:, 'airline_section_x', g:airline_section_x)
@@ -690,8 +747,8 @@ if isdirectory(expand(s:plugin_directory . '/vim-gutentags'))
   endif
 
   " Wrap setup in a function so variables can be local
-  function s:SetupGutenTags()
-    if get(g:, 'rooter_installed')
+  function! s:SetupGutenTags()
+    if s:PlugActive('vim-rooter')
       let l:git_cmd = 'git -C '
       let l:git_cmd .= expand(s:plugin_directory . '/vim-gutentags')
       let l:git_cmd .= ' rev-parse --abbrev-ref HEAD'
@@ -744,16 +801,16 @@ if isdirectory(expand(s:plugin_directory . '/vim-gutentags'))
 endif
 
 "//////////"
-" undotree "
+" undotree {{{2
 "//////////"
-if isdirectory(expand(s:plugin_directory . '/undotree'))
+if s:PlugActive('undotree')
   nnoremap <silent> <leader>u :UndotreeToggle<CR>
 endif
 
 "////////////////"
-" vim-easy-align "
+" vim-easy-align {{{2
 "////////////////"
-if isdirectory(expand(s:plugin_directory . '/vim-easy-align'))
+if s:PlugActive('vim-easy-align')
   " Start interactive EasyAlign in visual mode (e.g. vipga)
   xmap ga <Plug>(EasyAlign)
 
@@ -762,9 +819,9 @@ if isdirectory(expand(s:plugin_directory . '/vim-easy-align'))
 endif
 
 "///////////////"
-" incsearch.vim "
+" incsearch.vim {{{2
 "///////////////"
-if isdirectory(expand(s:plugin_directory . '/incsearch.vim'))
+if s:PlugActive('incsearch.vim')
   map /  <Plug>(incsearch-forward)
   map ?  <Plug>(incsearch-backward)
   map g/ <Plug>(incsearch-stay)
@@ -779,9 +836,9 @@ if isdirectory(expand(s:plugin_directory . '/incsearch.vim'))
 endif
 
 "/////////////////////"
-" incsearch-fuzzy.vim "
+" incsearch-fuzzy.vim {{{2
 "/////////////////////"
-if isdirectory(expand(s:plugin_directory . '/incsearch-fuzzy.vim'))
+if s:PlugActive('incsearch-fuzzy.vim')
   function! s:config_fuzzyall(...) abort
     return extend(copy({
           \   'converters': [
@@ -797,9 +854,9 @@ if isdirectory(expand(s:plugin_directory . '/incsearch-fuzzy.vim'))
 endif
 
 "//////////////////////////"
-" incsearch-easymotion.vim "
+" incsearch-easymotion.vim {{{2
 "//////////////////////////"
-if isdirectory(expand(s:plugin_directory . '/incsearch-easymotion.vim'))
+if s:PlugActive('incsearch-easymotion.vim')
   function! s:config_easyfuzzymotion(...) abort
     return extend(copy({
           \   'converters': [incsearch#config#fuzzy#converter()],
@@ -814,15 +871,17 @@ if isdirectory(expand(s:plugin_directory . '/incsearch-easymotion.vim'))
 endif
 
 "////////////////"
-" easymotion.vim "
+" easymotion.vim {{{2
 "////////////////"
-if isdirectory(expand(s:plugin_directory . '/vim-easymotion'))
+if s:PlugActive('vim-easymotion')
   nmap F <Plug>(easymotion-s)
 endif
 
 "////////////"
-" indentLine "
+" indentLine {{{2
 "////////////"
-if isdirectory(expand(s:plugin_directory . '/indentLine'))
+if s:PlugActive('indentLine')
   let g:indentLine_fileTypeExclude=['text', 'help']
 endif
+
+" vim: set sw=2 sts=2 fdm=marker:
