@@ -213,6 +213,9 @@ if has('mouse_sgr')
   set ttymouse=sgr
 endif
 
+" This is the desired quickfix height
+let s:qfheight = 5
+
 " Since python uses whitespace to denote structures, foldmethod=indent works
 " reasonably well, so use it rather than a plugin. Additionally set a
 " textwidth of 100 (PEP8 allows for lines up to 100 characters if desired).
@@ -226,6 +229,9 @@ autocmd vimrc VimEnter * :set scrolloff=0
 
 " Automatically combine location list entries into the quickfix list
 autocmd vimrc BufWinEnter,BufWinLeave,BufWipeout <buffer> call s:quickfix_combine()
+
+" Ensure the quickfix window stays the correct height
+autocmd vimrc FileType qf if !empty(getqflist()) | execute 'res '.s:qfheight | endif
 
 """"""""""""""""""""""""
 " FORMATTING {{{1
@@ -346,10 +352,14 @@ endfunction
 " Combine location list entries of visible buffers into the quickfix list
 function! s:quickfix_combine()
   let l:combined = []
-  let l:buflist = uniq(sort(tabpagebuflist()))
-  for l:bufnr in l:buflist
-      call extend(l:combined, getloclist(l:bufnr))
+  for l:winnr in range(winnr('$'))
+      call extend(l:combined, getloclist(l:winnr+1))
   endfor
+
+  " Only update it if it has changed
+  if l:combined == getqflist()
+    return
+  endif
 
   " Set quickfix list
   call setqflist(l:combined, 'r')
@@ -361,7 +371,7 @@ function! s:quickfix_combine()
     let l:winnr = winnr()
 
     " Open the quickfix window
-    cwindow 5
+    execute printf('botright cwindow  %d', s:qfheight)
 
     " Restore state if needed
     if l:winnr != winnr()
@@ -578,11 +588,25 @@ endif
 " UltiSnips {{{2
 "///////////"
 if s:PlugActive('ultisnips')
-  " Make <Enter> expand snippets (only when the popup menu is visible),
-  " otherwise it simply inserts a carriage return as expected.
+  " Make <Enter> expand snippets if possible (only when the popup menu is
+  " visible), otherwise it simply inserts a carriage return as expected.
   let g:UltiSnipsExpandTrigger = '<Nop>'
-	inoremap <expr> <CR> pumvisible() ?
-        \ '<C-R>=UltiSnips#ExpandSnippet()<CR>' : '<CR>'
+
+  " NOTE: The weird usage of "\uD" below is due to a workaround to get the
+  " Enter key to not expand (Enter is Ctrl-M which is 0xD in the ASCII table).
+  " For more information `:help map-expression`
+  let g:UltiSnipsExpandCmd = []
+  call add(g:UltiSnipsExpandCmd, '!UltiSnips#ExpandSnippet()')
+  call add(g:UltiSnipsExpandCmd, '&& g:ulti_expand_res == 0')
+  call add(g:UltiSnipsExpandCmd, '? "\uD" : ""')
+
+  let g:UltiSnipsExpandMapping = []
+  call add(g:UltiSnipsExpandMapping, 'inoremap <silent> <expr> <CR>')
+  call add(g:UltiSnipsExpandMapping, 'pumvisible() ? ')
+  call add(g:UltiSnipsExpandMapping, printf("'<C-R>=%s<CR>'",
+        \ join(g:UltiSnipsExpandCmd)))
+  call add(g:UltiSnipsExpandMapping, ": '<CR>'")
+  execute join(g:UltiSnipsExpandMapping)
 
   let g:UltiSnipsJumpForwardTrigger='<TAB>'
   let g:UltiSnipsJumpBackwardTrigger='<S-TAB>'
@@ -653,6 +677,8 @@ if s:PlugActive('vim-qf')
   let g:qf_mapping_ack_style = 1
   let g:qf_auto_open_loclist = 0
   let g:qf_auto_open_quickfix = 0
+  let g:qf_window_bottom = 0
+  let g:qf_loclist_window_bottom = 0
 endif
 
 "////////////////"
