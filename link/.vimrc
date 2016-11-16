@@ -207,8 +207,6 @@ set splitright " New split goes to the right
 set hidden " When a buffer is brought to foreground, remember undo history and marks.
 set report=0 " Show all changes.
 set mouse=a " Enable mouse in all modes.
-set timeout
-set timeoutlen=250
 if has('mouse_sgr')
   set ttymouse=sgr
 endif
@@ -219,7 +217,7 @@ let s:qfheight = 5
 " Since python uses whitespace to denote structures, foldmethod=indent works
 " reasonably well, so use it rather than a plugin. Additionally set a
 " textwidth of 100 (PEP8 allows for lines up to 100 characters if desired).
-autocmd vimrc FileType python set foldmethod=indent textwidth=100
+autocmd vimrc FileType python setlocal foldmethod=indent textwidth=100
 
 " Override default in sensible.vim, do not include context above/below cursor
 " when scrolling. Have to implement it this way because sensible.vim will
@@ -264,6 +262,103 @@ noremap <silent> <leader>pp :set invpaste paste?<CR>
 
 " Allow saving of files as sudo when I forgot to start vim using sudo.
 cnoremap w!! w !sudo tee > /dev/null %
+
+""""""""""""""""""""""""
+" FOLDS {{{1
+""""""""""""""""""""""""
+" FUNCTION: FoldTopLevel() {{{2
+function! FoldTopLevel(level)
+  while foldlevel(line('.') - 1) >= a:level
+    let l:foldtop = foldclosed(line('.'))
+    if l:foldtop > 0
+      execute printf('silent! normal! %sG', l:foldtop)
+    endif
+
+    if foldlevel(line('.') - 1) < a:level
+      break
+    endif
+
+    silent! normal! [z
+  endwhile
+
+  return line('.')
+endfunction
+
+" FUNCTION: FoldClose() {{{2
+function! FoldClose(level)
+  let l:winstate = winsaveview()
+  let l:foldtop = FoldTopLevel(a:level)
+  if foldlevel(l:foldtop) != a:level
+    return
+  endif
+
+  let l:leveloffset = a:level
+  if foldclosed(l:foldtop) == -1
+    silent! normal! V]z
+  endif
+
+  silent! normal! zO
+  let l:foldtop = line('.')
+  let l:foldlevels = [[l:foldtop]]
+
+  silent! normal! ]z
+  let l:foldbottom = line('.')
+  for l:line in range(l:foldtop + 1, l:foldbottom)
+    let l:level = foldlevel(l:line)
+    if l:level > foldlevel(l:line - 1) && foldclosed(l:line) == -1
+      let l:folds = get(l:foldlevels, l:level - l:leveloffset, [])
+      if empty(l:folds)
+        call add(l:foldlevels, l:folds)
+      endif
+
+      call add(l:folds, l:line)
+    endif
+  endfor
+
+  for l:foldlevel in range(len(l:foldlevels) - 1, 0, -1)
+    for l:line in l:foldlevels[l:foldlevel]
+      execute printf('%dfoldclose', l:line)
+    endfor
+  endfor
+
+  call winrestview(l:winstate)
+endfunction
+
+" FUNCTION: FoldOpen() {{{2
+function! FoldOpen(level)
+  let l:winstate = winsaveview()
+  call FoldTopLevel(a:level)
+  if foldclosed(line('.')) == -1
+    silent! normal! V]z
+  endif
+
+  silent! normal! zO
+  call winrestview(l:winstate)
+endfunction
+
+" FUNCTION: FoldNext() {{{2
+function! FoldNext(repeat)
+  for l:i in range(a:repeat)
+    call FoldTopLevel(1)
+    silent! normal! ]z
+    silent! normal! zj
+  endfor
+endfunction
+
+" FUNCTION: FoldPrevious() {{{2
+function! FoldPrevious(repeat)
+  for l:i in range(a:repeat)
+    call FoldTopLevel(1)
+    silent! normal! zk
+  endfor
+  call FoldTopLevel(1)
+endfunction
+
+nnoremap zT :<C-U>call FoldTopLevel(v:count1)<CR>
+nnoremap zC :<C-U>call FoldClose(v:count1)<CR>
+nnoremap zO :<C-U>call FoldOpen(v:count1)<CR>
+nnoremap zJ :<C-U>call FoldNext(v:count1)<CR>
+nnoremap zK :<C-U>call FoldPrevious(v:count1)<CR>
 
 """"""""""""""""""""""""
 " FILE TYPES {{{1
@@ -908,6 +1003,15 @@ endif
 "////////////"
 if s:PlugActive('indentLine')
   let g:indentLine_fileTypeExclude=['text', 'help']
+endif
+
+"//////////////"
+" vim-polyglot {{{2
+"//////////////"
+if s:PlugActive('vim-polyglot')
+  " Make syntax highlighting correct, but potentially slower
+  let g:python_slow_sync = 1
+  let g:python_highlight_all = 1
 endif
 
 " vim: set sw=2 sts=2 fdm=marker:
