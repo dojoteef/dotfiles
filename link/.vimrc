@@ -154,7 +154,7 @@ set showtabline=1 " Always show tab bar.
 set relativenumber " Use relative line numbers. Current line is still in status bar.
 set title " Show the filename in the window titlebar.
 set nowrap " Do not wrap lines.
-set noshowmode " Don't show the current mode (airline.vim takes care of us)
+set showmode " Show mode by default
 set laststatus=2 " Always show status line
 set colorcolumn=+1 " Make it obvious where text would wrap with 'textwidth'
 set background=dark
@@ -266,19 +266,69 @@ cnoremap w!! w !sudo tee > /dev/null %
 """"""""""""""""""""""""
 " FOLDS {{{1
 """"""""""""""""""""""""
+" FUNCTION: s:foldpos() {{{2
+" Figure out the top or bottom of the fold, unfortunately this is not a built
+" in function. Using the builtin functions, the top and bottom of folds can
+" only be determined when they are closed...
+function! s:foldpos(line, pos)
+  if a:pos ==# 'top'
+    let l:Function = function('foldclosed')
+  elseif a:pos ==# 'bottom'
+    let l:Function = function('foldclosedend')
+  else
+    return a:line
+  endif
+
+  let l:opencount = 0
+  let l:foldpos = l:Function(a:line)
+  while l:foldpos != -1 && foldlevel(l:foldpos) != foldlevel(a:line)
+    foldopen
+    let l:opencount += 1
+    let l:foldpos = l:Function(a:line)
+  endwhile
+
+  if l:foldpos == -1
+    " Close the fold then query the position
+    execute printf('%dfoldclose', a:line)
+    let l:foldpos = l:Function(a:line)
+
+    if l:foldpos == -1
+      " There must not have been a fold to close:
+      " * The fold level could be 0
+      " * Folds might not be enabled.
+      let l:foldpos = a:line
+    elseif foldlevel(l:foldpos) < foldlevel(a:line)
+      " * The fold is too small to close (see 'foldminlines')
+      let l:foldpos = a:line
+      execute printf('%dfoldopen', a:line)
+    else
+      execute printf('%dfoldopen', a:line)
+    endif
+  endif
+
+  while l:opencount > 0
+    foldclose
+    let l:opencount -= 1
+  endwhile
+
+  return l:foldpos
+endfunction
+let g:FoldPos = function('s:foldpos')
+
 " FUNCTION: FoldTopLevel() {{{2
 function! FoldTopLevel(level)
-  while foldlevel(line('.') - 1) >= a:level
-    let l:foldtop = foldclosed(line('.'))
-    if l:foldtop > 0
-      execute printf('silent! normal! %sG', l:foldtop)
-    endif
+  while foldlevel(line('.')) >= a:level
+    let l:line = line('.')
+    let l:foldtop = s:foldpos(l:line, 'top')
+    execute printf('silent! normal! %dG', l:foldtop)
 
-    if foldlevel(line('.') - 1) < a:level
+    " If the jumped reached the desired fold level break
+    let l:foldlevel = foldlevel(line('.'))
+    if l:foldlevel == 0 || l:foldlevel <= a:level
       break
     endif
 
-    silent! normal! [z
+    execute printf('silent! normal! %dG', l:foldtop - 1)
   endwhile
 
   return line('.')
@@ -292,30 +342,26 @@ function! FoldClose(level)
     return
   endif
 
-  let l:leveloffset = a:level
-  if foldclosed(l:foldtop) == -1
-    silent! normal! V]z
-  endif
+  let l:foldlevels = {}
+  let l:foldbottom = s:foldpos(line('.'), 'bottom')
+  execute printf('silent! normal! V%dGzO%dG', l:foldbottom, l:foldtop)
 
-  silent! normal! zO
-  let l:foldtop = line('.')
-  let l:foldlevels = [[l:foldtop]]
-
-  silent! normal! ]z
-  let l:foldbottom = line('.')
-  for l:line in range(l:foldtop + 1, l:foldbottom)
+  while line('.') < l:foldbottom
+    let l:line = line('.')
     let l:level = foldlevel(l:line)
-    if l:level > foldlevel(l:line - 1) && foldclosed(l:line) == -1
-      let l:folds = get(l:foldlevels, l:level - l:leveloffset, [])
-      if empty(l:folds)
-        call add(l:foldlevels, l:folds)
+    if foldclosed(l:line) == -1
+      let l:foldlevels[l:level] = get(l:foldlevels, l:level, [])
+      call add(l:foldlevels[l:level], l:line)
+      silent! normal! zj
+
+      if l:line == line('.')
+        " Must have reached the last fold in the file, so break
+        break
       endif
-
-      call add(l:folds, l:line)
     endif
-  endfor
+  endwhile
 
-  for l:foldlevel in range(len(l:foldlevels) - 1, 0, -1)
+  for l:foldlevel in reverse(sort(keys(l:foldlevels), 'n'))
     for l:line in l:foldlevels[l:foldlevel]
       execute printf('%dfoldclose', l:line)
     endfor
@@ -327,12 +373,13 @@ endfunction
 " FUNCTION: FoldOpen() {{{2
 function! FoldOpen(level)
   let l:winstate = winsaveview()
-  call FoldTopLevel(a:level)
-  if foldclosed(line('.')) == -1
-    silent! normal! V]z
+  let l:foldtop = FoldTopLevel(a:level)
+  if foldlevel(l:foldtop) != a:level
+    return
   endif
 
-  silent! normal! zO
+  let l:foldbottom = s:foldpos(line('.'), 'bottom')
+  execute printf('silent! normal! V%dGzO%dG', l:foldbottom, l:foldtop)
   call winrestview(l:winstate)
 endfunction
 
@@ -354,6 +401,7 @@ function! FoldPrevious(repeat)
   call FoldTopLevel(1)
 endfunction
 
+" FUNCTION: Mappings {{{2
 nnoremap zT :<C-U>call FoldTopLevel(v:count1)<CR>
 nnoremap zC :<C-U>call FoldClose(v:count1)<CR>
 nnoremap zO :<C-U>call FoldOpen(v:count1)<CR>
@@ -507,6 +555,23 @@ endfunction
 " Set colorscheme to zenburn if it exists
 if s:PlugActive('Zenburn')
   colorscheme zenburn
+
+  if s:PlugActive('vim-airline')
+    " The sections 'c' & 'x' use the 'NonText' highlight which is hard to read
+    " so instead use the 'Directory' highlight.
+    function! s:AirlineZenburnPatch(palette)
+      if g:airline_theme ==# 'zenburn'
+        for l:mode in ['normal', 'inactive']
+          for l:section in ['c', 'x']
+            let a:palette[l:mode]['airline_'.l:section] =
+                  \ airline#themes#get_highlight('Directory')
+          endfor
+        endfor
+      endif
+    endfunction
+
+    let g:airline_theme_patch_func = s:script_function('s:AirlineZenburnPatch')
+  endif
 endif
 
 "/////////////////////"
@@ -529,23 +594,20 @@ endif
 " Airline {{{2
 "/////////"
 if s:PlugActive('vim-airline')
+  " Don't show the current mode; airline takes care of it
+  set noshowmode
+
   " See https://github.com/vim-airline/vim-airline/issues/1125
   let g:airline_exclude_preview = 1
 
+  " Use the same theme as the currently selected colorscheme
   let g:airline_theme = g:colors_name
 
-  " Only enable tmuxline and promptline while installing
-  let g:airline#extensions#tmuxline#enabled = g:vim_installing
-  let g:airline#extensions#promptline#enabled = g:vim_installing
+  " Enabled extensions
+  let g:airline_extensions = ['tabline']
+  let g:airline#extensions#disable_rtp_load = 1
 
-  " Setup tabline
-  let g:airline#extensions#tabline#enabled = 1
-  let g:airline#extensions#tabline#buffer_nr_format = '%s '
-  let g:airline#extensions#tabline#buffer_nr_show = 1
-  let g:airline#extensions#tabline#fnamemod = ':.:t'
-  let g:airline#extensions#tabline#formatter = 'unique_tail_improved'
-  let g:airline#extensions#tabline#ignore_bufadd_pat = '\c\vnerd_tree'
-
+  " Setup powerline fonts and symbols {{{3
   let g:airline_powerline_fonts = !empty($POWERLINE_FONT)
   if !exists('g:airline_symbols')
     let g:airline_symbols = {}
@@ -586,12 +648,128 @@ if s:PlugActive('vim-airline')
     let g:airline#extensions#tabline#right_sep = '«'
     let g:airline#extensions#tabline#right_alt_sep = '◀'
   endif
+
+  " Setup default extension {{{3
+  let g:airline#extensions#default#section_truncate_width = {
+        \ 'b': 60,
+        \ 'x': 45,
+        \ 'y': 60,
+        \ 'z': 30,
+        \ 'warning': 60,
+        \ 'error': 60,
+        \ }
+
+  " Define custom parts which are more compact than the default {{{3
+  let s:part = []
+  call add(s:part, '%{g:airline_symbols.linenr}')
+  call add(s:part, '%{g:airline_symbols.space}')
+  call add(s:part, '%#__accent_bold#%l%#__restore__#')
+  call airline#parts#define('linenr', {
+        \ 'raw': join(s:part, ''),
+        \ 'accent': 'bold'})
+
+  let s:part = []
+  call add(s:part, '%#__accent_bold#')
+  call add(s:part, '/%L%{g:airline_symbols.maxlinenr}')
+  call add(s:part, '%#__restore__#')
+  call airline#parts#define('maxlinenr', {
+        \ 'raw': join(s:part, ''),
+        \ 'accent': 'bold'})
+
+  function! s:AirlinePath(...)
+    let l:winwidth = a:0 ? a:1 : winwidth(0)
+
+    let l:path = bufname(a:0 ? a:2 : '%')
+    let l:finalpath = l:path
+    for l:count in ['', '9', '8', '7', '6', '5', '4', '3', '2', '1']
+      let l:convertbacklash = ':gs?\\?/?'
+      let l:shorten = printf(':gs?\%%(\([^/]\{1,%s}\)[^/]*\)*?\1?', l:count)
+      let l:pattern = printf(':~:.:h%s%s', l:convertbacklash, l:shorten)
+      let l:finalpath = join([fnamemodify(l:path, l:pattern), fnamemodify(l:path, ':t')], '/')
+      if l:winwidth - strlen(l:finalpath) > 40
+        break
+      endif
+    endfor
+    return l:finalpath
+  endfunction
+  call airline#parts#define('file', {
+        \ 'function': s:script_function('s:AirlinePath'),
+        \ })
+  call airline#parts#define('path', {
+        \ 'function': s:script_function('s:AirlinePath'),
+        \ })
+
+  " Custom mode names for truncation
+  let s:airline_short_mode_map = {
+        \ 'n'  : 'N',
+        \ 'i'  : 'I',
+        \ 'R'  : 'R',
+        \ 'v'  : 'V',
+        \ 'V'  : 'VL',
+        \ 'c'  : 'C',
+        \ '' : 'VB',
+        \ 's'  : 'S',
+        \ 'S'  : 'SL',
+        \ '' : 'SB',
+        \ 't'  : 'T',
+        \ }
+
+  function! s:AirlineMode()
+    let l:pathlen = strlen(s:AirlinePath())
+    let l:mode = get(w:, 'airline_current_mode', '')
+    return winwidth(0) - l:pathlen < 79 ? s:airline_short_mode_map[mode()] : l:mode
+  endfunction
+
+  call airline#parts#define('mode', {
+        \ 'function': s:script_function('s:AirlineMode'),
+        \ 'accent': 'bold',
+        \ })
+
+  " Custom sections for better truncation {{{3
+  function! s:AirlineSectionB(builder, context, ...)
+    let s:airline_section_b_short = get(s:,
+          \ 'airline_section_b_short',
+          \ airline#section#create(['branch']))
+
+    let l:winwidth = winwidth(a:context.winnr)
+    let l:pathlen = strlen(s:AirlinePath(l:winwidth, a:context.bufnr))
+    if l:winwidth - l:pathlen < 60
+      let w:airline_section_b = s:airline_section_b_short
+    endif
+  endfunction
+  call airline#add_statusline_func(s:script_function('s:AirlineSectionB'))
+
+  let g:airline_section_z = airline#section#create([
+        \ '%p%%', 'linenr', 'maxlinenr', g:airline_symbols.space.'%2v'])
+
+  function! s:AirlineSectionZ(builder, context, ...)
+    let s:airline_section_z_short = get(s:,
+          \ 'airline_section_z_short',
+          \ airline#section#create(['%l:%2v']))
+
+    let l:winwidth = winwidth(a:context.winnr)
+    let l:pathlen = strlen(s:AirlinePath(l:winwidth, a:context.bufnr))
+    if l:winwidth - l:pathlen < 50
+      let w:airline_section_z = s:airline_section_z_short
+    endif
+  endfunction
+  call airline#add_statusline_func(s:script_function('s:AirlineSectionZ'))
+
+  " Setup tabline extension {{{3
+  let g:airline#extensions#tabline#buffer_nr_show = 1
+  let g:airline#extensions#tabline#buffer_nr_format = '%s '
+  let g:airline#extensions#tabline#fnamemod = ':.:t'
+  let g:airline#extensions#tabline#formatter = 'unique_tail_improved'
+  let g:airline#extensions#tabline#ignore_bufadd_pat = '\c\vnerd_tree'
 endif
 
 "////////////"
 " promptline {{{2
 "////////////"
 if g:vim_installing && s:PlugActive('promptline.vim')
+  " Add to the list of enabled extensions
+  let g:airline_extensions += ['promptline']
+
   " promptline (needs to be after the plugins are activated since it uses a
   " function from promptline which hasn't been sourced yet...)
   let g:promptline_theme = 'airline'
@@ -608,6 +786,9 @@ endif
 " tmuxline {{{2
 "////////////"
 if g:vim_installing && s:PlugActive('tmuxline.vim')
+  " Add to the list of enabled extensions
+  let g:airline_extensions += ['tmuxline']
+
   " tmuxline
   let g:tmuxline_theme = 'airline'
   let g:tmuxline_powerline_separators = g:airline_powerline_fonts
@@ -673,10 +854,23 @@ if s:PlugActive('tagbar')
 endif
 
 "/////////"
+" Fugitive {{{2
+"/////////"
+if s:PlugActive('vim-fugitive')
+  if s:PlugActive('vim-airline')
+    let g:airline_extensions += ['branch']
+  endif
+endif
+
+"/////////"
 " Signify {{{2
 "/////////"
 if s:PlugActive('vim-signify')
   let g:signify_vcs_list = ['git']
+
+  if s:PlugActive('vim-airline')
+    let g:airline_extensions += ['hunks']
+  endif
 endif
 
 "///////////"
@@ -723,11 +917,15 @@ endif
 if s:PlugActive('neomake')
   " For debugging
   "let g:neomake_verbose = 3
+
+  if s:PlugActive('vim-airline')
+    let g:airline_extensions += ['neomake']
+  endif
+
   autocmd vimrc ColorScheme,VimEnter *
         \ highlight! link NeomakeErrorSign Error
         \ | highlight! link NeomakeWarningSign Debug
 
-  let g:airline#extensions#neomake#enabled = s:PlugActive('vim-airline')
   autocmd vimrc User NeomakeFinished,NeomakeCountsChanged nested
         \ call s:quickfix_combine()
 
@@ -789,6 +987,14 @@ endif
 "///////////////"
 if s:PlugActive('YouCompleteMe')
   set completeopt-=preview
+
+  if s:PlugActive('vim-airline')
+    " NOTE: For some reason the ycm airline extension is very slow, just
+    " scrolling down a 500 line python script will cause the cursor to start
+    " stuttering and jumping as the status line is unable to update in time.
+    " Disabling this extension for now.
+    "let g:airline_extensions += ['ycm']
+  endif
 
   " Vim default is <C-X><C-O> so keep it that way
   let g:ycm_key_invoke_completion = '<Nop>'
@@ -856,16 +1062,6 @@ if s:PlugActive('vim-gutentags')
         \ '.hg': 'hg files',
         \ },
         \ }
-
-  " Update status line if airline is installed
-  if s:PlugActive('vim-airline')
-    " Add vim-gutentags status
-    function! GutentagsStatus(...)
-      let w:airline_section_x = get(w:, 'airline_section_x', g:airline_section_x)
-      let w:airline_section_x .= g:airline_symbols.space . '%{gutentags#statusline()}'
-    endfunction
-    call airline#add_statusline_func('GutentagsStatus')
-  endif
 
   " Wrap setup in a function so variables can be local
   function! s:SetupGutenTags()
@@ -1012,6 +1208,40 @@ if s:PlugActive('vim-polyglot')
   " Make syntax highlighting correct, but potentially slower
   let g:python_slow_sync = 1
   let g:python_highlight_all = 1
+endif
+
+"//////////////"
+" vim-devicons {{{2
+"//////////////"
+if s:PlugActive('vim-devicons')
+  let g:webdevicons_enable_airline_statusline = 0
+  let g:webdevicons_enable_airline_statusline_fileformat_symbols = 0
+
+  if s:PlugActive('vim-airline')
+    " Custom sections for better truncation
+    function! s:AirlineDevIcons(builder, context, ...)
+      let l:section = []
+      let l:winwidth = winwidth(a:context.winnr)
+      let l:pathlen = strlen(s:AirlinePath(l:winwidth, a:context.bufnr))
+      if l:winwidth - l:pathlen > 60
+        call add(l:section, get(w:, 'airline_section_x', g:airline_section_x))
+      endif
+
+      call add(l:section, '%{WebDevIconsGetFileTypeSymbol()}')
+      let w:airline_section_x = join(l:section, g:airline_symbols.space)
+
+      let l:section = []
+      let l:space = '.g:airline_symbols.space.'
+      if l:winwidth - l:pathlen > 79
+        call add(l:section, '&fenc')
+      endif
+
+      call add(l:section, 'WebDevIconsGetFileFormatSymbol()')
+      let w:airline_section_y = printf('%%{%s}', join(l:section, l:space))
+    endfunction
+
+    call airline#add_statusline_func(s:script_function('s:AirlineDevIcons'))
+  endif
 endif
 
 " vim: set sw=2 sts=2 fdm=marker:
