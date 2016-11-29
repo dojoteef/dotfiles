@@ -15,6 +15,7 @@ fi
 e_header "Updating Homebrew"
 brew doctor
 brew update
+brew upgrade
 
 brew bundle "--file=$DOTFILES/conf/osx/brew/core" check &> /dev/null
 if [[ $? -ne 0 ]]; then

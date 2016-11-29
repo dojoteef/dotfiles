@@ -94,6 +94,7 @@ Plug 'Valloric/YouCompleteMe', { 'do': b:ycm_install_cmd }
 " Plug 'maralla/completor.vim' " TODO: Checkout when you have time
 
 " Search & Navigation
+Plug 't9md/vim-choosewin'
 Plug 'osyo-manga/vim-over'
 Plug 'haya14busa/incsearch.vim' | Plug 'haya14busa/incsearch-fuzzy.vim'
 Plug 'easymotion/vim-easymotion' | Plug 'haya14busa/incsearch-easymotion.vim'
@@ -226,7 +227,9 @@ autocmd vimrc FileType python setlocal foldmethod=indent textwidth=100
 autocmd vimrc VimEnter * :set scrolloff=0
 
 " Automatically combine location list entries into the quickfix list
-autocmd vimrc BufWinEnter,BufWinLeave,BufWipeout <buffer> call s:quickfix_combine()
+autocmd vimrc BufWinEnter * call s:quickfix_combine()
+      \ | autocmd vimrc BufHidden,BufUnload,BufWipeout <buffer=abuf>
+      \ call s:quickfix_combine(expand('<abuf>'))
 
 " Ensure the quickfix window stays the correct height
 autocmd vimrc FileType qf if !empty(getqflist()) | execute 'res '.s:qfheight | endif
@@ -493,10 +496,18 @@ endfunction
 
 " FUNCTION: s:quickfix_combine() {{{2
 " Combine location list entries of visible buffers into the quickfix list
-function! s:quickfix_combine()
+function! s:quickfix_combine(...)
   let l:combined = []
-  for l:winnr in range(winnr('$'))
-      call extend(l:combined, getloclist(l:winnr+1))
+  let l:closed = a:0 ? a:1 : -1
+  for l:winnr in range(1, winnr('$'))
+    if l:winnr == l:closed
+      continue
+    endif
+
+    let l:bufnr = winbufnr(l:winnr)
+    if l:bufnr > -1 && l:bufnr != l:closed
+      call extend(l:combined, getloclist(l:winnr))
+    endif
   endfor
 
   " Only update it if it has changed
@@ -534,6 +545,15 @@ call s:determine_slash()
 function! s:script_function(func) abort
   " See http://stackoverflow.com/a/17184285
   return substitute(a:func, '^s:', matchstr(expand('<sfile>'), '<SNR>\d\+_'),'')
+endfunction
+
+" FUNCTION: s:highlight() {{{2
+function! s:highlight(hlname) abort
+  redir => l:output
+  silent! execute printf('highlight %s', a:hlname)
+  redir END
+
+  return l:output
 endfunction
 
 """"""""""""""""""""""""
@@ -952,6 +972,32 @@ if s:PlugActive('neomake-autolint')
   " it off it can be quite annoying as the sign column flashes open/closed
   " during autolinting.
   let g:neomake_autolint_sign_column_always = 1
+
+  " Correctly setup PYTHONPATH for pylint. Since Neomake-Autolint uses a
+  " temporary file the default PYTHONPATH will be in the temporary directory
+  " rather than the project root.
+  function! s:PylintSetup()
+    " Store off the original PYTHONPATH since it will be modified prior to
+    " doing a lint pass.
+    let s:PythonPath = exists('s:PythonPath') ? s:PythonPath : $PYTHONPATH
+    let l:path = s:PythonPath
+    if match(l:path, getcwd()) >= 0
+      " If the current PYTHONPATH already includes the working directory
+      " then there is nothing left to do
+      return
+    endif
+
+    if !empty(l:path)
+      " Uses the same path separator that the OS uses, so ':' on Unix and ';'
+      " on Windows. Only consider Unix for now.
+      let l:path.=':'
+    endif
+
+    let $PYTHONPATH=l:path . getcwd()
+  endfunction
+
+  autocmd vimrc FileType python
+        \ autocmd vimrc User NeomakeAutolint call s:PylintSetup()
 endif
 
 "/////////"
@@ -1006,13 +1052,14 @@ if s:PlugActive('YouCompleteMe')
       wincmd P
     catch /^Vim\%((\a\+)\)\=:E441/
       silent! YcmCompleter GetDoc
-      return
+      return ''
     endtry
 
     silent! pclose!
+    return ''
   endfunction
 
-  execute printf('inoremap <C-E> <C-R>=execute("call %s()")<CR>',
+  execute printf('inoremap <C-E> <C-R>=%s()<CR>',
         \ s:script_function('s:ToggleYcmDoc'))
 
   nnoremap <leader>yg :YcmCompleter GoTo<CR>
@@ -1093,8 +1140,14 @@ if s:PlugActive('vim-gutentags')
 
         " vim-gutentags expects a function which takes one parameter to it
         " so wrap the vim-rooter function which does not take a path.
-        function! GutentagsProjectRoot(path)
-          return FindRootDirectory()
+        function! GutentagsProjectRoot(path) abort
+          let l:root = FindRootDirectory()
+          if type(l:root) != type('') || empty(l:root)
+            let v:errmsg = 'gutentags: cannot find project root'
+            throw v:errmsg
+          endif
+
+          return l:root
         endfunction
 
         let g:gutentags_project_root_finder = 'GutentagsProjectRoot'
@@ -1242,6 +1295,29 @@ if s:PlugActive('vim-devicons')
 
     call airline#add_statusline_func(s:script_function('s:AirlineDevIcons'))
   endif
+endif
+
+"//////////////"
+" vim-choosewin {{{2
+"//////////////"
+if s:PlugActive('vim-choosewin')
+  let g:choosewin_overlay_enable = 1
+	let g:choosewin_tabline_replace = 0
+  let g:choosewin_statusline_replace = 0
+  let g:choosewin_overlay_clear_multibyte = 1
+
+  let s:choosewin_current_fg = matchlist(
+        \ eval('s:highlight("Directory")'), '\%(ctermfg=\(\d\+\)\)')
+  let s:choosewin_overlay_fg = matchlist(
+        \ eval('s:highlight("Keyword")'), '\%(ctermfg=\(\d\+\)\)')
+  let g:choosewin_color_overlay = {
+        \ 'cterm': [s:choosewin_overlay_fg[1], s:choosewin_overlay_fg[1], '']
+        \ }
+  let g:choosewin_color_overlay_current = {
+        \ 'cterm': [s:choosewin_current_fg[1], s:choosewin_current_fg[1], 'bold']
+        \ }
+
+  nmap <leader>w <Plug>(choosewin)
 endif
 
 " vim: set sw=2 sts=2 fdm=marker:
