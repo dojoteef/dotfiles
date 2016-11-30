@@ -475,38 +475,55 @@ function! s:bufallwinnr(bufnr, ...)
   return l:tabwinnr
 endfunction
 
-" FUNCTION: s:find_window(...) {{{2
-function! s:find_window(...)
-  let l:winvar = get(a:, '1', '')
-  if exists(l:winvar)
-    return winnr()
-  endif
+" FUNCTION: s:execute() {{{2
+" Compatability with older versions of Vim for the execute() function
+function! s:execute(cmd) abort
+  redir => l:output
+  silent! execute a:cmd
+  redir END
+
+  return l:output
 endfunction
 
-" FUNCTION: s:unlet(...) {{{2
-function! s:unlet(...)
-  let l:prefix = a:1
-  for l:var in a:2
-    let l:varname = l:prefix.var
-    if exists(l:varname)
-      execute 'unlet' l:varname
-    endif
-  endfor
+" FUNCTION: s:is_quickfix() {{{2
+" Determine if the current window holds a location/quickfix list
+function! s:is_quickfix() abort
+  return s:execute('setlocal filetype') =~# 'qf'
 endfunction
 
 " FUNCTION: s:quickfix_combine() {{{2
 " Combine location list entries of visible buffers into the quickfix list
-function! s:quickfix_combine(...)
+function! s:quickfix_combine(...) abort
   let l:combined = []
+  for l:entry in getqflist()
+    if l:entry.text !~# 'LOCLIST(\d\+):'
+      call add(l:combined, l:entry)
+    endif
+  endfor
+
   let l:closed = a:0 ? a:1 : -1
+
+  let s:qfwinnrs = []
+  let l:winnr = winnr()
+  windo execute 'if s:is_quickfix() | call add(s:qfwinnrs, winnr()) | endif'
+  execute printf('%dwincmd w', l:winnr)
+
   for l:winnr in range(1, winnr('$'))
-    if l:winnr == l:closed
+    if l:winnr == l:closed || index(s:qfwinnrs, l:winnr) >= 0
       continue
     endif
 
     let l:bufnr = winbufnr(l:winnr)
     if l:bufnr > -1 && l:bufnr != l:closed
-      call extend(l:combined, getloclist(l:winnr))
+      let l:loclist = []
+      for l:entry in getloclist(l:winnr)
+        if index(l:loclist, l:entry) < 0
+          let l:entry.text = printf('LOCLIST(%d): %s', l:bufnr, l:entry.text)
+          call add(l:loclist, l:entry)
+        endif
+      endfor
+
+      call extend(l:combined, l:loclist)
     endif
   endfor
 
@@ -525,11 +542,11 @@ function! s:quickfix_combine(...)
     let l:winnr = winnr()
 
     " Open the quickfix window
-    execute printf('botright cwindow  %d', s:qfheight)
+    execute printf('botright copen %d', s:qfheight)
 
     " Restore state if needed
     if l:winnr != winnr()
-      wincmd p
+      execute printf('%dwincmd w', l:winnr)
       call winrestview(l:winstate)
     endif
   endif
@@ -547,14 +564,6 @@ function! s:script_function(func) abort
   return substitute(a:func, '^s:', matchstr(expand('<sfile>'), '<SNR>\d\+_'),'')
 endfunction
 
-" FUNCTION: s:highlight() {{{2
-function! s:highlight(hlname) abort
-  redir => l:output
-  silent! execute printf('highlight %s', a:hlname)
-  redir END
-
-  return l:output
-endfunction
 
 """"""""""""""""""""""""
 " SETUP PLUGINS {{{1
@@ -1046,6 +1055,7 @@ if s:PlugActive('YouCompleteMe')
   let g:ycm_key_invoke_completion = '<Nop>'
   let g:ycm_key_list_select_completion = ['<TAB>', '<Down>']
   let g:ycm_key_list_previous_completion = ['<S-TAB>', '<Up>']
+  "let g:ycm_collect_identifiers_from_tags_files = 1
 
   function! s:ToggleYcmDoc()
     try
@@ -1062,7 +1072,63 @@ if s:PlugActive('YouCompleteMe')
   execute printf('inoremap <C-E> <C-R>=%s()<CR>',
         \ s:script_function('s:ToggleYcmDoc'))
 
-  nnoremap <leader>yg :YcmCompleter GoTo<CR>
+  let s:YcmTagStack = []
+  function! s:YcmTagStackAdd(curpos) abort
+    call add(s:YcmTagStack, a:curpos)
+
+    " According to the vim docs the builtin tag stack holds up to 20 items
+    let l:builtin = count(s:YcmTagStack, [])
+    if l:builtin > 20
+      call remove(s:YcmTagStack, index(s:YcmTagStack, []))
+    endif
+
+    " Make the max ycm specific tag stack also 20
+    if len(s:YcmTagStack) - l:builtin > 20
+      for l:index in range(len(s:YcmTagStack))
+        if s:YcmTagStack[l:index] != []
+          call remove(s:YcmTagStack, l:index)
+          break
+        endif
+      endfor
+    endif
+  endfunction
+
+  function! s:YcmGoToDefinition()
+    let l:curpos = getcurpos()
+    let l:curpos[0] = bufnr('%')
+    let l:retval = execute(':YcmCompleter GoTo')
+    if empty(l:retval)
+      call s:YcmTagStackAdd(l:curpos)
+      return
+    endif
+
+    let l:retval = split(l:retval)[0]
+    if l:retval =~# 'Error:'
+      try
+        execute "normal! \<C-]>"
+        call s:YcmTagStackAdd([])
+      endtry
+    else
+      call s:YcmTagStackAdd(l:curpos)
+    endif
+  endfunction
+
+  function! s:YcmPop()
+    let l:curpos = !empty(s:YcmTagStack) ? remove(s:YcmTagStack, -1) : []
+    if empty(l:curpos)
+      execute "normal! \<C-T>"
+    else
+      execute printf('b%d', l:curpos[0])
+      let l:curpos[0] = 0
+      call setpos('.', l:curpos)
+    endif
+  endfunction
+
+  execute printf('nnoremap <C-]> :call %s()<CR>',
+        \ s:script_function('s:YcmGoToDefinition'))
+  execute printf('nnoremap <C-T> :call %s()<CR>',
+        \ s:script_function('s:YcmPop'))
+
   nnoremap <leader>yd :YcmCompleter GetDoc<CR>
   nnoremap <leader>yr :YcmCompleter GoToReferences<CR>
 endif
@@ -1307,9 +1373,9 @@ if s:PlugActive('vim-choosewin')
   let g:choosewin_overlay_clear_multibyte = 1
 
   let s:choosewin_current_fg = matchlist(
-        \ eval('s:highlight("Directory")'), '\%(ctermfg=\(\d\+\)\)')
+        \ s:execute('highlight Directory'), '\%(ctermfg=\(\d\+\)\)')
   let s:choosewin_overlay_fg = matchlist(
-        \ eval('s:highlight("Keyword")'), '\%(ctermfg=\(\d\+\)\)')
+        \ s:execute('highlight Keyword'), '\%(ctermfg=\(\d\+\)\)')
   let g:choosewin_color_overlay = {
         \ 'cterm': [s:choosewin_overlay_fg[1], s:choosewin_overlay_fg[1], '']
         \ }
