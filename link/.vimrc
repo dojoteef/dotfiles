@@ -493,7 +493,12 @@ endfunction
 
 " FUNCTION: s:quickfix_combine() {{{2
 " Combine location list entries of visible buffers into the quickfix list
+let s:qfwinnrs = {}
 function! s:quickfix_combine(...) abort
+  if s:is_quickfix()
+    let s:qfwinnrs[win_getid()] = 1
+  endif
+
   let l:combined = []
   for l:entry in getqflist()
     if l:entry.text !~# 'LOCLIST(\d\+):'
@@ -503,13 +508,8 @@ function! s:quickfix_combine(...) abort
 
   let l:closed = a:0 ? a:1 : -1
 
-  let s:qfwinnrs = []
-  let l:winnr = winnr()
-  windo execute 'if s:is_quickfix() | call add(s:qfwinnrs, winnr()) | endif'
-  execute printf('%dwincmd w', l:winnr)
-
   for l:winnr in range(1, winnr('$'))
-    if l:winnr == l:closed || index(s:qfwinnrs, l:winnr) >= 0
+    if l:winnr == l:closed || get(s:qfwinnrs, win_getid(l:winnr), 0) > 0
       continue
     endif
 
