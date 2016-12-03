@@ -232,7 +232,7 @@ autocmd vimrc BufWinEnter * call s:quickfix_combine()
       \ call s:quickfix_combine(expand('<abuf>'))
 
 " Ensure the quickfix window stays the correct height
-autocmd vimrc FileType qf if !empty(getqflist()) | execute 'res '.s:qfheight | endif
+autocmd vimrc FileType qf if !empty(getqflist()) | execute 'resize '.s:qfheight | endif
 
 """"""""""""""""""""""""
 " FORMATTING {{{1
@@ -485,20 +485,28 @@ function! s:execute(cmd) abort
   return l:output
 endfunction
 
-" FUNCTION: s:is_quickfix() {{{2
-" Determine if the current window holds a location/quickfix list
-function! s:is_quickfix() abort
-  return s:execute('setlocal filetype') =~# 'qf'
+" FUNCTION: s:quickfix_open() {{{2
+" Open the quickfix window
+function! s:quickfix_open() abort
+  if len(getqflist()) > 0
+    " Save state
+    let l:winstate = winsaveview()
+    let l:winnr = winnr()
+
+    " Open the quickfix window
+    execute printf('botright cwindow %d', s:qfheight)
+
+    " Restore state if needed
+    if l:winnr != winnr()
+      execute printf('%dwincmd w', l:winnr)
+      call winrestview(l:winstate)
+    endif
+  endif
 endfunction
 
 " FUNCTION: s:quickfix_combine() {{{2
 " Combine location list entries of visible buffers into the quickfix list
-let s:qfwinnrs = {}
 function! s:quickfix_combine(...) abort
-  if s:is_quickfix()
-    let s:qfwinnrs[win_getid()] = 1
-  endif
-
   let l:combined = []
   for l:entry in getqflist()
     if l:entry.text !~# 'LOCLIST(\d\+):'
@@ -507,9 +515,17 @@ function! s:quickfix_combine(...) abort
   endfor
 
   let l:closed = a:0 ? a:1 : -1
-
   for l:winnr in range(1, winnr('$'))
-    if l:winnr == l:closed || get(s:qfwinnrs, win_getid(l:winnr), 0) > 0
+    if l:winnr == l:closed
+      continue
+    endif
+
+    if len(getwinvar(l:winnr, 'quickfix_title')) > 0
+      " The window variable w:quickfix_title is set for all quickfix/location
+      " list windows automatically by vim, so skip quickfix windows when
+      " combining location lists to prevent duplicates (as location list
+      " windows will return the currently displayed location list when
+      " getloclist() is called.
       continue
     endif
 
@@ -527,7 +543,8 @@ function! s:quickfix_combine(...) abort
     endif
   endfor
 
-  " Only update it if it has changed
+  " Only update it if it has changed, exiting early means it will not try to
+  " open the quickfix window if it was explictly closed but has not changed.
   if l:combined == getqflist()
     return
   endif
@@ -537,17 +554,24 @@ function! s:quickfix_combine(...) abort
 
   " Automatically open the quickfix window if it contains any entries
   if !empty(l:combined)
-    " Save state
-    let l:winstate = winsaveview()
-    let l:winnr = winnr()
-
-    " Open the quickfix window
-    execute printf('botright copen %d', s:qfheight)
-
-    " Restore state if needed
-    if l:winnr != winnr()
-      execute printf('%dwincmd w', l:winnr)
-      call winrestview(l:winstate)
+    " Only try to open the quickfix window in normal mode, otherwise there is
+    " a risk of losing state (like visual selection or undo history)
+    if  mode(1) ==# 'n'
+      call s:quickfix_open()
+    else
+      " Try to open the quickfix list upon entering normal mode, since there
+      " is no autocommand for entering a particular mode, just wait until the
+      " first CursorHold (which is always normal mode) or CursorMoved (which
+      " could be normal or visual, so verify if it is normal).
+      augroup vimrc_qf
+        autocmd!
+        autocmd vimrc_qf CursorHold *
+              \ | call s:quickfix_open()
+              \ | autocmd! vimrc_qf
+        autocmd vimrc_qf CursorMoved *
+              \ if mode(1) ==# 'n' | call s:quickfix_open() | endif
+              \ | autocmd! vimrc_qf
+      augroup END
     endif
   endif
 endfunction
