@@ -226,6 +226,10 @@ autocmd vimrc FileType python setlocal foldmethod=indent textwidth=100
 " overridden due to the order of sourcing sensible.vim files.
 autocmd vimrc VimEnter * :set scrolloff=0
 
+" Keep the preview window up to date
+autocmd vimrc BufWinEnter * call s:update_previewwinid()
+autocmd vimrc OptionSet previewwindow call s:update_previewwinid()
+
 " Automatically combine location list entries into the quickfix list
 autocmd vimrc BufWinEnter * call s:quickfix_combine()
       \ | autocmd vimrc BufHidden,BufUnload,BufWipeout <buffer=abuf>
@@ -485,6 +489,17 @@ function! s:execute(cmd) abort
   return l:output
 endfunction
 
+" FUNCTION: s:update_previewwinid() {{{2
+" Combine location list entries of visible buffers into the quickfix list
+let g:previewwinid = 0
+function! s:update_previewwinid() abort
+  if s:execute('setlocal previewwindow?') =~# '\s\+previewwindow'
+    let g:previewwinid = win_getid()
+  elseif g:previewwinid == win_getid()
+    let g:previewwinid = 0
+  endif
+endfunction
+
 " FUNCTION: s:quickfix_open() {{{2
 " Open the quickfix window
 function! s:quickfix_open() abort
@@ -516,7 +531,8 @@ function! s:quickfix_combine(...) abort
 
   let l:closed = a:0 ? a:1 : -1
   for l:winnr in range(1, winnr('$'))
-    if l:winnr == l:closed
+    if l:winnr == l:closed || l:winnr == win_id2win(g:previewwinid)
+      " Ignore the window we just closed and the preview window
       continue
     endif
 
