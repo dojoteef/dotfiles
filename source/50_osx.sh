@@ -25,6 +25,9 @@ export PATH
 # Trim new lines and copy to clipboard
 alias c="tr -d '\n' | pbcopy"
 
+# MacOS does not have sudoedit by default! Fix this with an alias
+alias sudoedit="sudo -e"
+
 # Export Localization.prefPane text substitution rules.
 function txt_sub_backup() {
   local prefs=~/Library/Preferences/.GlobalPreferences.plist

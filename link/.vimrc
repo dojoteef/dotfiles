@@ -277,7 +277,7 @@ cnoremap w!! w !sudo tee > /dev/null %
 " Figure out the top or bottom of the fold, unfortunately this is not a built
 " in function. Using the builtin functions, the top and bottom of folds can
 " only be determined when they are closed...
-function! s:foldpos(line, pos)
+function! s:foldpos(line, pos, ...)
   if a:pos ==# 'top'
     let l:Function = function('foldclosed')
   elseif a:pos ==# 'bottom'
@@ -288,7 +288,8 @@ function! s:foldpos(line, pos)
 
   let l:opencount = 0
   let l:foldpos = l:Function(a:line)
-  while l:foldpos != -1 && foldlevel(l:foldpos) != foldlevel(a:line)
+  let l:level = a:0 > 0 ? a:1 : foldlevel(a:line)
+  while l:foldpos != -1 && foldlevel(l:foldpos) != l:level
     foldopen
     let l:opencount += 1
     let l:foldpos = l:Function(a:line)
@@ -304,7 +305,7 @@ function! s:foldpos(line, pos)
       " * The fold level could be 0
       " * Folds might not be enabled.
       let l:foldpos = a:line
-    elseif foldlevel(l:foldpos) < foldlevel(a:line)
+    elseif foldlevel(l:foldpos) < l:level
       " * The fold is too small to close (see 'foldminlines')
       let l:foldpos = a:line
       execute printf('%dfoldopen', a:line)
@@ -320,22 +321,23 @@ function! s:foldpos(line, pos)
 
   return l:foldpos
 endfunction
-let g:FoldPos = function('s:foldpos')
 
-" FUNCTION: FoldTopLevel() {{{2
-function! FoldTopLevel(level)
+" FUNCTION: FoldLevel() {{{2
+function! FoldLevel(level, pos)
   while foldlevel(line('.')) >= a:level
     let l:line = line('.')
-    let l:foldtop = s:foldpos(l:line, 'top')
-    execute printf('silent! normal! %dG', l:foldtop)
+    let l:foldpos = s:foldpos(l:line, a:pos, a:level)
+    execute printf('silent! normal! %dG', l:foldpos)
 
     " If the jumped reached the desired fold level break
+    let l:folddiff = a:pos ==# 'top' ? -1 : 1
     let l:foldlevel = foldlevel(line('.'))
     if l:foldlevel == 0 || l:foldlevel <= a:level
+          \ || foldlevel(l:foldpos + l:folddiff) < a:level
       break
     endif
 
-    execute printf('silent! normal! %dG', l:foldtop - 1)
+    execute printf('silent! normal! %dG', l:foldpos + l:folddiff)
   endwhile
 
   return line('.')
@@ -344,14 +346,14 @@ endfunction
 " FUNCTION: FoldClose() {{{2
 function! FoldClose(level)
   let l:winstate = winsaveview()
-  let l:foldtop = FoldTopLevel(a:level)
-  if foldlevel(l:foldtop) != a:level
+  let l:foldtop = FoldLevel(a:level, 'top')
+  if foldlevel(l:foldtop) < a:level
     return
   endif
 
   let l:foldlevels = {}
-  let l:foldbottom = s:foldpos(line('.'), 'bottom')
-  execute printf('silent! normal! V%dGzO%dG', l:foldbottom, l:foldtop)
+  let l:foldbottom = FoldLevel(a:level, 'bottom')
+  execute printf('silent! normal! V%dGzO', l:foldtop)
 
   while line('.') < l:foldbottom
     let l:line = line('.')
@@ -368,11 +370,14 @@ function! FoldClose(level)
     endif
   endwhile
 
-  for l:foldlevel in reverse(sort(keys(l:foldlevels), 'n'))
+  for l:foldlevel in sort(keys(l:foldlevels), 'n')
     for l:line in l:foldlevels[l:foldlevel]
       execute printf('%dfoldclose', l:line)
     endfor
   endfor
+    while foldclosed(l:foldtop) == -1
+      execute printf('%dfoldclose', l:line)
+    endwhile
 
   call winrestview(l:winstate)
 endfunction
@@ -380,20 +385,20 @@ endfunction
 " FUNCTION: FoldOpen() {{{2
 function! FoldOpen(level)
   let l:winstate = winsaveview()
-  let l:foldtop = FoldTopLevel(a:level)
-  if foldlevel(l:foldtop) != a:level
+  let l:foldtop = FoldLevel(a:level, 'top')
+  if foldlevel(l:foldtop) < a:level
     return
   endif
 
-  let l:foldbottom = s:foldpos(line('.'), 'bottom')
-  execute printf('silent! normal! V%dGzO%dG', l:foldbottom, l:foldtop)
+  let l:foldbottom = FoldLevel(a:level, 'bottom')
+  execute printf('silent! normal! V%dGzO', l:foldtop)
   call winrestview(l:winstate)
 endfunction
 
 " FUNCTION: FoldNext() {{{2
 function! FoldNext(repeat)
   for l:i in range(a:repeat)
-    call FoldTopLevel(1)
+    call FoldLevel(1, 'top')
     silent! normal! ]z
     silent! normal! zj
   endfor
@@ -402,14 +407,15 @@ endfunction
 " FUNCTION: FoldPrevious() {{{2
 function! FoldPrevious(repeat)
   for l:i in range(a:repeat)
-    call FoldTopLevel(1)
+    call FoldLevel(1, 'top')
     silent! normal! zk
   endfor
-  call FoldTopLevel(1)
+  call FoldLevel(1, 'top')
 endfunction
 
 " FUNCTION: Mappings {{{2
-nnoremap zT :<C-U>call FoldTopLevel(v:count1)<CR>
+nnoremap zT :<C-U>call FoldLevel(v:count1, 'top')<CR>
+nnoremap zB :<C-U>call FoldLevel(v:count1, 'bottom')<CR>
 nnoremap zC :<C-U>call FoldClose(v:count1)<CR>
 nnoremap zO :<C-U>call FoldOpen(v:count1)<CR>
 nnoremap zJ :<C-U>call FoldNext(v:count1)<CR>
