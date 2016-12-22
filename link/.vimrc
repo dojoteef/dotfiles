@@ -231,9 +231,25 @@ autocmd vimrc BufWinEnter * call s:update_previewwinid()
 autocmd vimrc OptionSet previewwindow call s:update_previewwinid()
 
 " Automatically combine location list entries into the quickfix list
-autocmd vimrc BufWinEnter * call s:quickfix_combine()
-      \ | autocmd vimrc BufHidden,BufUnload,BufWipeout <buffer=abuf>
-      \ call s:quickfix_combine(expand('<abuf>'))
+function! s:quickfix_bufwinenter(bufnr)
+  let l:buffer = printf('<buffer=%d>', a:bufnr)
+  let l:events = 'BufHidden,BufUnload,BufWipeout'
+  let l:cmd = printf('call s:quickfix_combine(%d)', a:bufnr)
+  let l:autocmd_target = ['vimrc_qfcombine', l:events, l:buffer]
+  if exists(printf('#%s', join(l:autocmd_target, '#')))
+    " Already setup for this target, so don't add a second one
+    return
+  endif
+
+  call s:quickfix_combine()
+  let l:autocmd = ['autocmd', join(l:autocmd_target), l:cmd]
+  let l:autocmd_disable = ['autocmd!', join(l:autocmd_target)]
+  execute printf('%s | %s', join(l:autocmd), join(l:autocmd_disable))
+endfunction
+
+augroup vimrc_qfcombine
+  autocmd BufWinEnter * call s:quickfix_bufwinenter(expand('<abuf>'))
+augroup END
 
 " Ensure the quickfix window stays the correct height
 autocmd vimrc FileType qf if !empty(getqflist()) | execute 'resize '.s:qfheight | endif
