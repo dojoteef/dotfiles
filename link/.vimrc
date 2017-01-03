@@ -96,7 +96,11 @@ Plug 'Valloric/YouCompleteMe', { 'do': b:ycm_install_cmd }
 " Search & Navigation
 Plug 't9md/vim-choosewin'
 Plug 'osyo-manga/vim-over'
-Plug 'haya14busa/incsearch.vim' | Plug 'haya14busa/incsearch-fuzzy.vim'
+if !s:nvim
+  " BUG: Disabling for now due to neovim issue:
+  " https://github.com/neovim/neovim/issues/5769
+  Plug 'haya14busa/incsearch.vim' | Plug 'haya14busa/incsearch-fuzzy.vim'
+endif
 Plug 'easymotion/vim-easymotion' | Plug 'haya14busa/incsearch-easymotion.vim'
 
 " File Explorer
