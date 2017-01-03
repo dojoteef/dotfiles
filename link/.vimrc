@@ -69,7 +69,7 @@ Plug 'tpope/vim-fugitive'
 Plug 'airblade/vim-rooter'
 
 " Syntax
-Plug 'dojoteef/neomake' | Plug 'dojoteef/neomake-autolint'
+Plug 'neomake/neomake' | Plug 'dojoteef/neomake-autolint'
 Plug 'sheerun/vim-polyglot'
 Plug 'Yggdroot/indentLine'
 Plug 'ynkdir/vim-vimlparser', { 'for': 'vim' }
