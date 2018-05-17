@@ -110,6 +110,10 @@ endif
 Plug 'scrooloose/nerdtree', { 'on': ['NERDTree', 'NERDTreeToggle', 'NERDTreeFind'] }
       \ | Plug 'Xuyuanp/nerdtree-git-plugin', { 'on': ['NERDTree', 'NERDTreeToggle', 'NERDTreeFind'] }
 
+if executable('latexmk') || executable('latexrun')
+  Plug 'lervag/vimtex'
+endif
+
 " tmux
 Plug 'tmux-plugins/vim-tmux'
 
@@ -172,8 +176,11 @@ function! s:AddSyntaxComments(keywords)
     return
   endif
 
-  execute printf('syntax keyword %sTodo containedin=%sComment %s',
-        \ &syntax, &syntax, join(a:keywords))
+  let l:syntaxlist = split(&syntax, '\.')
+  for l:syntax in l:syntaxlist
+    execute printf('syntax keyword %sTodo containedin=%sComment %s',
+          \ l:syntax, l:syntax, join(a:keywords))
+  endfor
 endfunction
 
 " Additional highlighting for comment keywords (for most filetypes only TODO,
@@ -1024,12 +1031,77 @@ if s:PlugActive('neomake')
   autocmd vimrc User NeomakeFinished,NeomakeCountsChanged nested
         \ call s:quickfix_combine()
 
-  let g:neomake_python_pylint_args = [
-        \ '--disable=I,R',
-        \ '--output-format=text',
-        \ '--msg-template="{path}:{line}:{column}:{C}: [{symbol}] {msg}"',
-        \ '--reports=no'
-        \ ]
+  function! s:PylintVersions(...) abort
+    if !exists('s:pylint_versions')
+      let s:pylint_versions = filter(['pylint2', 'pylint3'], 'executable(v:val)')
+
+      " If no explicit pylint versions available try adding the default
+      if empty(s:pylint_versions) && executable('pylint')
+        let s:pylint_versions = ['pylint']
+      endif
+    endif
+
+    return s:pylint_versions
+  endfunction
+
+  function! s:PylintMakerSetup(pylint_version) abort
+    let l:maker_dict = neomake#makers#ft#python#pylint()
+    let l:maker_dict['args'] = [
+          \ '--disable=I,R',
+          \ '--output-format=text',
+          \ '--msg-template="{path}:{line}:{column}:{C}: [{symbol}] {msg}"',
+          \ '--reports=no'
+          \ ]
+
+    let g:['neomake_' . a:pylint_version . '_maker'] = l:maker_dict
+    let g:['neomake_python_' . a:pylint_version . '_maker'] = l:maker_dict
+  endfunction
+  call s:PylintMakerSetup('pylint')
+
+  function! s:PylintMakersSetup() abort
+    for l:pylint_version in s:PylintVersions()
+      call s:PylintMakerSetup(l:pylint_version)
+    endfor
+  endfunction
+  call s:PylintMakersSetup()
+
+  function! s:PylintEnable(all, ...) abort
+    let l:pylint_makers = uniq(sort(filter(copy(a:000), 'executable(v:val)')))
+    let l:enabled_makers = ['flake8'] + l:pylint_makers
+
+    let l:bufnrs = []
+    if a:all
+      let g:neomake_python_enabled_makers = l:enabled_makers
+
+      " In order to ensure the current python buffers are using the correct
+      " pylint set the buffer variable to the global variable if it exists
+      " since the buffer variable overrides the global variable
+
+      " Ensure the buffer is (1) listed
+      let l:expr = 'buflisted(v:val)'
+
+      " (2) a python buffer
+      let l:expr .= '&& getbufvar(v:val, "&filetype") ==# "python"'
+
+      " (3) has the buffer variable 'neomake_python_enabled_makers' set
+      let l:expr .= '&& type(getbufvar(v:val, "neomake_python_enabled_makers", -1)) == type([])'
+
+      " Finally set the enabled makers variable for the filtered buffer list
+      let l:bufnrs = filter(range(1, bufnr('$')), l:expr)
+      for l:bufnr in l:bufnrs
+        call setbufvar(l:bufnr, 'neomake_python_enabled_makers', l:enabled_makers)
+      endfor
+    else
+      let b:neomake_python_enabled_makers = l:enabled_makers
+    endif
+  endfunction
+
+  let g:neomake_python_enabled_makers = filter(['flake8', 'pylint'], 'executable(v:val)')
+  command! -nargs=* -bang -complete=customlist,s:PylintVersions
+        \ NeomakePylintEnable call s:PylintEnable(<bang>0, <f-args>)
+
+  " For now disable
+  let g:neomake_tex_enabled_makers = []
 endif
 
 "//////////////////"
@@ -1073,6 +1145,18 @@ if s:PlugActive('neomake-autolint')
 
   autocmd vimrc FileType python
         \ autocmd vimrc User NeomakeAutolint call s:PylintSetup()
+
+  " Point to the correct .eslintrc file for the buffer.
+  " function! s:ESLintSetup()
+  "   let l:eslintrc = join([getcwd(), '.eslintrc'], s:slash)
+  "   if filereadable(l:eslintrc)
+  "     let b:neomake_javascript_eslint_args =
+  "           \ ['-f', 'compact', '-c', l:eslintrc]
+  "   endif
+  " endfunction
+
+  " autocmd vimrc FileType javascript
+  "       \ autocmd vimrc User NeomakeAutolint call s:ESLintSetup()
 endif
 
 "/////////"
@@ -1303,6 +1387,49 @@ if s:PlugActive('vim-gutentags')
 endif
 
 "//////////"
+" vimtex {{{2
+"//////////"
+if s:PlugActive('vimtex')
+  let g:vimtex_quickfix_mode = 2
+  let g:vimtex_quickfix_open_on_warning = 0
+
+  if s:PlugActive('YouCompleteMe')
+    if !exists('g:ycm_semantic_triggers')
+      let g:ycm_semantic_triggers = {}
+    endif
+    let g:ycm_semantic_triggers.tex = g:vimtex#re#youcompleteme
+
+    " Caching interferes with auto complete suggestions.
+    " It kind of sucks that this is a global setting, especially since it
+    " slows things down.
+    let g:ycm_cache_omnifunc = 0
+  endif
+
+  if executable('skimpdf')
+    let g:vimtex_view_method = 'skim'
+  endif
+
+  if executable('nvr')
+    let g:vimtex_compiler_progname = 'nvr'
+  endif
+
+  let g:vimtex_compiler_latexmk = {
+      \ 'background' : 1,
+      \ 'build_dir' : '.latex',
+      \ 'callback' : 1,
+      \ 'continuous' : 1,
+      \ 'executable' : 'latexmk',
+      \ 'options' : [
+      \   '-pdf',
+      \   '-verbose',
+      \   '-file-line-error',
+      \   '-synctex=1',
+      \   '-interaction=nonstopmode',
+      \ ],
+      \}
+endif
+
+"//////////"
 " undotree {{{2
 "//////////"
 if s:PlugActive('undotree')
@@ -1383,7 +1510,7 @@ endif
 " indentLine {{{2
 "////////////"
 if s:PlugActive('indentLine')
-  let g:indentLine_fileTypeExclude=['text', 'help']
+  let g:indentLine_fileTypeExclude=['text', 'help', 'tex', 'markdown']
 endif
 
 "//////////////"
@@ -1393,6 +1520,13 @@ if s:PlugActive('vim-polyglot')
   " Make syntax highlighting correct, but potentially slower
   let g:python_slow_sync = 1
   let g:python_highlight_all = 1
+
+  if !exists('g:polyglot_disabled')
+    let g:polyglot_disabled = []
+  endif
+  if s:PlugActive('vimtex')
+    let g:polyglot_disabled += ['latex']
+  endif
 endif
 
 "//////////////"

@@ -112,15 +112,19 @@ export -f assert
 function is_osx() {
   [[ "$OSTYPE" =~ ^darwin ]] || return 1
 }
+function is_redhat() {
+  [[ "$(cat /etc/issue 2> /dev/null)" =~ "Red Hat" ]] || return 1
+}
 function is_ubuntu() {
   [[ "$(cat /etc/issue 2> /dev/null)" =~ Ubuntu ]] || return 1
 }
 function get_os() {
-  for os in osx ubuntu; do
+  for os in osx redhat ubuntu; do
     is_$os; [[ $? == "${1:-0}" ]] && echo $os
   done
 }
 export -f is_osx
+export -f is_redhat
 export -f is_ubuntu
 export -f get_os
 

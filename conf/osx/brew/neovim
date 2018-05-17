@@ -1,2 +1,1 @@
-tap 'neovim/neovim'
-brew 'neovim/neovim/neovim'
+brew 'neovim'

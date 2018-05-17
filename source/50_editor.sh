@@ -16,5 +16,9 @@ if [[ "$(type -P nvim)" ]]; then
   alias vim='nvim'
 fi
 
+if [[ "$(type -P nvr)" ]] && [[ "$(type -P latexmk)" ]]; then
+  alias vimtex='nvr'
+fi
+
 export EDITOR='vim'
 export VISUAL="$EDITOR"

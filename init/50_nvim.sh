@@ -36,10 +36,13 @@ if sudo_allowed; then
     # Install it!
     sudo apt-get -qq install neovim
   fi
+fi
 
-  e_header "Ensuring latest neovim package for python2/3 is installed"
-  sudo -H pip2 -q install --upgrade neovim
-  sudo -H pip3 -q install --upgrade neovim
+if [[ "$(type -P nvim)" ]]; then
+  e_header "Ensuring latest neovim packages for python2/3 are installed"
+  pip2 -q install --upgrade neovim
+  pip3 -q install --upgrade neovim
+  pip3 -q install --upgrade neovim-remote
 fi
 
 ###########################################################################
