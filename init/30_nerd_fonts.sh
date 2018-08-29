@@ -8,7 +8,7 @@ cache_dir=$DOTFILES/caches/fonts
 
 if is_osx; then
   font_dir="$HOME/Library/Fonts"
-elif is_ubuntu || is_redhat; then
+elif is_ubuntu || is_redhat || is_centos; then
   font_dir="$HOME/.local/share/fonts"
 else
   echo "Skipping font install. Unsupported OS."

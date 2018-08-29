@@ -280,6 +280,7 @@ set hlsearch " Highlight searches
 """"""""""""""""""""""""
 " Change mapleader
 let g:mapleader=','
+let g:maplocalleader='\'
 
 " Move more naturally up/down when wrapping is enabled.
 nnoremap j gj

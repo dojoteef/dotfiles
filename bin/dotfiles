@@ -118,13 +118,17 @@ function is_redhat() {
 function is_ubuntu() {
   [[ "$(cat /etc/issue 2> /dev/null)" =~ Ubuntu ]] || return 1
 }
+function is_centos() {
+  [[ "$(cat /etc/centos-release 2> /dev/null)" =~ CentOS ]] || return 1
+}
 function get_os() {
-  for os in osx redhat ubuntu; do
+  for os in osx redhat ubuntu centos; do
     is_$os; [[ $? == "${1:-0}" ]] && echo $os
   done
 }
 export -f is_osx
 export -f is_redhat
+export -f is_centos
 export -f is_ubuntu
 export -f get_os
 
@@ -343,7 +347,7 @@ function do_stuff() {
 # Enough with the functions, let's do stuff.
 
 if [[ "$(get_os)" == "" ]]; then
-  e_error "Unknown OS, dotfiles currently only supports OSX and Ubuntu"
+  e_error "Unknown OS, dotfiles currently only supports OSX, Red Hat, CentOS, and Ubuntu"
   exit 1
 fi
 
