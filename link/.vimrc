@@ -69,7 +69,7 @@ Plug 'tpope/vim-fugitive'
 Plug 'airblade/vim-rooter'
 
 " Syntax
-Plug 'neomake/neomake' | Plug 'dojoteef/neomake-autolint'
+Plug 'neomake/neomake'
 Plug 'sheerun/vim-polyglot'
 Plug 'Yggdroot/indentLine'
 Plug 'ynkdir/vim-vimlparser', { 'for': 'vim' }
@@ -691,6 +691,7 @@ endif
 if s:PlugActive('fzf.vim')
   nnoremap <leader>h :Helptags<CR>
   nnoremap <silent> <C-p> :Files<CR>
+  set runtimepath+=/usr/local/opt/fzf
 endif
 
 "/////////"
@@ -1101,26 +1102,6 @@ if s:PlugActive('neomake')
   command! -nargs=* -bang -complete=customlist,s:PylintVersions
         \ NeomakePylintEnable call s:PylintEnable(<bang>0, <f-args>)
 
-  " For now disable
-  let g:neomake_tex_enabled_makers = []
-endif
-
-"//////////////////"
-" Neomake-Autolint {{{2
-"//////////////////"
-if s:PlugActive('neomake-autolint')
-  " Where to cache temporary files used for linting unwritten buffers.
-  let g:neomake_autolint_cachedir = $DOTFILES . '/caches/vim'
-
-  " The number of milliseconds to wait before running another neomake lint
-  " over the file.
-  let g:neomake_autolint_updatetime = 250
-
-  " Whether to keep the sign column showing all the time. Default to on. With
-  " it off it can be quite annoying as the sign column flashes open/closed
-  " during autolinting.
-  let g:neomake_autolint_sign_column_always = 1
-
   " Correctly setup PYTHONPATH for pylint. Since Neomake-Autolint uses a
   " temporary file the default PYTHONPATH will be in the temporary directory
   " rather than the project root.
@@ -1145,19 +1126,12 @@ if s:PlugActive('neomake-autolint')
   endfunction
 
   autocmd vimrc FileType python
-        \ autocmd vimrc User NeomakeAutolint call s:PylintSetup()
+        \ autocmd vimrc User NeomakeJobInit call s:PylintSetup()
 
-  " Point to the correct .eslintrc file for the buffer.
-  " function! s:ESLintSetup()
-  "   let l:eslintrc = join([getcwd(), '.eslintrc'], s:slash)
-  "   if filereadable(l:eslintrc)
-  "     let b:neomake_javascript_eslint_args =
-  "           \ ['-f', 'compact', '-c', l:eslintrc]
-  "   endif
-  " endfunction
+  " For now disable
+  let g:neomake_tex_enabled_makers = []
 
-  " autocmd vimrc FileType javascript
-  "       \ autocmd vimrc User NeomakeAutolint call s:ESLintSetup()
+  call neomake#configure#automake('nrw', 500)
 endif
 
 "/////////"
