@@ -64,7 +64,6 @@ fi
 
 # Misc cleanup!
 brew cleanup
-brew cask cleanup
 
 # This is where brew stores its binary symlinks
 binroot="$(brew --config | awk '/HOMEBREW_PREFIX/ {print $2}')"/bin

@@ -257,6 +257,12 @@ set expandtab " Expand tabs to spaces
 set nojoinspaces " Only insert single space after a '.', '?' and '!' with a join command.
 set hlsearch " Highlight searches
 
+" Set wrapping by default in tex files
+autocmd vimrc FileType tex set wrap
+
+" Use 4 spaces for indenting in java
+autocmd vimrc FileType java set ts=4 sts=4 sw=4
+
 """"""""""""""""""""""""
 " KEYMAPPINGS {{{1
 """"""""""""""""""""""""
@@ -264,9 +270,17 @@ set hlsearch " Highlight searches
 let g:mapleader=','
 let g:maplocalleader='\'
 
-" Move more naturally up/down when wrapping is enabled.
-nnoremap j gj
-nnoremap k gk
+" Move more naturally when wrapping is enabled.
+noremap <silent> j gj
+noremap <silent> k gk
+" noremap <silent> 0 g0
+" noremap <silent> $ g$
+
+" For operator pending mode
+onoremap <silent> j gj
+onoremap <silent> k gk
+" onoremap <silent> 0 g0
+" onoremap <silent> $ g$
 
 " Ctrl-J/K/L/H select split
 nnoremap <C-J> <C-W>j
@@ -861,7 +875,7 @@ if g:vim_installing && s:PlugActive('promptline.vim')
   let g:promptline_theme = 'airline'
   let g:promptline_powerline_symbols = g:airline_powerline_fonts
   let g:promptline_preset = {
-        \ 'a' : [ promptline#slices#host(), promptline#slices#user() ],
+        \ 'a' : [ promptline#slices#host({'only_if_ssh': 1}), promptline#slices#user() ],
         \ 'b' : [ promptline#slices#cwd() ],
         \ 'c' : [ promptline#slices#vcs_branch(), promptline#slices#git_status() ],
         \ 'warn' : [ promptline#slices#last_exit_code() ]

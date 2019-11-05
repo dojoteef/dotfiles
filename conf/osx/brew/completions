@@ -1,4 +1,4 @@
-tap 'homebrew/completions'
+tap 'homebrew/core'
 brew 'bash-completion'
 brew 'brew-cask-completion'
 brew 'launchctl-completion'

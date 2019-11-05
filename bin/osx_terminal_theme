@@ -6,7 +6,12 @@ import Foundation
 func archivedFontWithName(name: String, size: Float?) -> Data? {
   if let _size = size {
     if let font = NSFont(name: name, size: CGFloat(_size)) {
-      return NSKeyedArchiver.archivedData(withRootObject:font)
+      do {
+        let data = try NSKeyedArchiver.archivedData(withRootObject:font, requiringSecureCoding:true)
+        return data
+      } catch {
+        print("Couldn't get font name \(name)")
+      }
     }
   }
   return nil
