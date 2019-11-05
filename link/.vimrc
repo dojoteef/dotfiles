@@ -30,23 +30,6 @@ let s:plugin_directory = '~/.vim/plugged'
 " https://github.com/junegunn/vim-plug
 " Reload .vimrc and :PlugInstall to install plugins.
 let s:nvim = has('nvim') && exists('*jobwait')
-if !s:nvim
-  " This is needed in order to install YouCompleteMe if not using neovim see:
-  " https://github.com/Valloric/YouCompleteMe/issues/1751#issuecomment-151893905
-  let g:plug_timeout = 9999
-endif
-
-" For some reason if this is a script var (s:var) vim complains that it does
-" not exist when using it in the Plug function, so make it a buffer var
-" (b:var).
-let b:ycm_install_cmd = './install.py'
-if executable('clang')
-  let b:ycm_install_cmd .= ' --clang-completer'
-endif
-
-if executable('go')
-  let b:ycm_install_cmd .= ' --gocode-completer'
-endif
 
 call plug#begin(s:plugin_directory)
 " Themes
@@ -76,7 +59,10 @@ Plug 'ynkdir/vim-vimlparser', { 'for': 'vim' }
       \ | Plug 'syngan/vim-vimlint', { 'for': 'vim' }
 Plug 'junegunn/vader.vim', { 'on': 'Vader', 'for': 'vader' }
 Plug 'romainl/vim-qf'
-" Plug 'w0rp/ale' " TODO: Checkout when you have time
+
+if has('nvim-0.4.0') || v:version >= 800
+  Plug 'neoclide/coc.nvim', {'branch': 'release'}
+endif
 
 " Tags
 if executable('ctags')
@@ -89,18 +75,11 @@ if executable('go')
   Plug 'fatih/vim-go', { 'for': 'go' }
 endif
 Plug 'SirVer/ultisnips' | Plug 'honza/vim-snippets'
-Plug 'Valloric/YouCompleteMe', { 'do': b:ycm_install_cmd }
-      \ | Plug 'rdnetto/YCM-Generator', { 'branch': 'stable'}
-" Plug 'maralla/completor.vim' " TODO: Checkout when you have time
 
 " Search & Navigation
 Plug 't9md/vim-choosewin'
 Plug 'osyo-manga/vim-over'
-if !s:nvim
-  " BUG: Disabling for now due to neovim issue:
-  " https://github.com/neovim/neovim/issues/5769
-  Plug 'haya14busa/incsearch.vim' | Plug 'haya14busa/incsearch-fuzzy.vim'
-endif
+Plug 'haya14busa/incsearch.vim' | Plug 'haya14busa/incsearch-fuzzy.vim'
 Plug 'easymotion/vim-easymotion' | Plug 'haya14busa/incsearch-easymotion.vim'
 
 " File Explorer
@@ -178,8 +157,11 @@ function! s:AddSyntaxComments(keywords)
 
   let l:syntaxlist = split(&syntax, '\.')
   for l:syntax in l:syntaxlist
+    " Syntax group names can only have the letters [a-zA-Z0-9_], so fix any
+    " bad names like 'docker-compose' (see help for group-name):
+    let l:prefix = substitute(l:syntax, '[^A-Za-z0-9_]', '_', 'g')
     execute printf('syntax keyword %sTodo containedin=%sComment %s',
-          \ l:syntax, l:syntax, join(a:keywords))
+          \ l:prefix, l:prefix, join(a:keywords))
   endfor
 endfunction
 
@@ -229,7 +211,7 @@ let s:qfheight = 5
 " Since python uses whitespace to denote structures, foldmethod=indent works
 " reasonably well, so use it rather than a plugin. Additionally set a
 " textwidth of 100 (PEP8 allows for lines up to 100 characters if desired).
-autocmd vimrc FileType python setlocal foldmethod=indent textwidth=100
+" autocmd vimrc FileType python setlocal foldmethod=indent textwidth=100
 
 " Override default in sensible.vim, do not include context above/below cursor
 " when scrolling. Have to implement it this way because sensible.vim will
@@ -1069,7 +1051,7 @@ if s:PlugActive('neomake')
 
   function! s:PylintEnable(all, ...) abort
     let l:pylint_makers = uniq(sort(filter(copy(a:000), 'executable(v:val)')))
-    let l:enabled_makers = ['flake8'] + l:pylint_makers
+    let l:enabled_makers = ['flake8', 'mypy'] + l:pylint_makers
 
     let l:bufnrs = []
     if a:all
@@ -1098,7 +1080,7 @@ if s:PlugActive('neomake')
     endif
   endfunction
 
-  let g:neomake_python_enabled_makers = filter(['flake8', 'pylint'], 'executable(v:val)')
+  let g:neomake_python_enabled_makers = filter(['flake8', 'mypy', 'pylint'], 'executable(v:val)')
   command! -nargs=* -bang -complete=customlist,s:PylintVersions
         \ NeomakePylintEnable call s:PylintEnable(<bang>0, <f-args>)
 
@@ -1160,102 +1142,6 @@ endif
 if s:PlugActive('vim-commentary')
   " example support for apache comments
   "autocmd vimrc FileType apache setlocal commentstring=#\ %s
-endif
-
-"///////////////"
-" YouCompleteMe {{{2
-"///////////////"
-if s:PlugActive('YouCompleteMe')
-  set completeopt-=preview
-
-  if s:PlugActive('vim-airline')
-    " NOTE: For some reason the ycm airline extension is very slow, just
-    " scrolling down a 500 line python script will cause the cursor to start
-    " stuttering and jumping as the status line is unable to update in time.
-    " Disabling this extension for now.
-    "let g:airline_extensions += ['ycm']
-  endif
-
-  " Vim default is <C-X><C-O> so keep it that way
-  let g:ycm_key_invoke_completion = '<Nop>'
-  let g:ycm_key_list_select_completion = ['<TAB>', '<Down>']
-  let g:ycm_key_list_previous_completion = ['<S-TAB>', '<Up>']
-  "let g:ycm_collect_identifiers_from_tags_files = 1
-
-  function! s:ToggleYcmDoc()
-    try
-      wincmd P
-    catch /^Vim\%((\a\+)\)\=:E441/
-      silent! YcmCompleter GetDoc
-      return ''
-    endtry
-
-    silent! pclose!
-    return ''
-  endfunction
-
-  execute printf('inoremap <C-E> <C-R>=%s()<CR>',
-        \ s:script_function('s:ToggleYcmDoc'))
-
-  let s:YcmTagStack = []
-  function! s:YcmTagStackAdd(curpos) abort
-    call add(s:YcmTagStack, a:curpos)
-
-    " According to the vim docs the builtin tag stack holds up to 20 items
-    let l:builtin = count(s:YcmTagStack, [])
-    if l:builtin > 20
-      call remove(s:YcmTagStack, index(s:YcmTagStack, []))
-    endif
-
-    " Make the max ycm specific tag stack also 20
-    if len(s:YcmTagStack) - l:builtin > 20
-      for l:index in range(len(s:YcmTagStack))
-        if s:YcmTagStack[l:index] != []
-          call remove(s:YcmTagStack, l:index)
-          break
-        endif
-      endfor
-    endif
-  endfunction
-
-  function! s:YcmGoToDefinition()
-    let l:curpos = getcurpos()
-    let l:curpos[0] = bufnr('%')
-    let l:retval = execute(':YcmCompleter GoTo')
-    if empty(l:retval)
-      call s:YcmTagStackAdd(l:curpos)
-      return
-    endif
-
-    let l:retval = split(l:retval)[0]
-    if l:retval =~# 'Error:'
-      try
-        execute "normal! \<C-]>"
-        call s:YcmTagStackAdd([])
-      endtry
-    else
-      call s:YcmTagStackAdd(l:curpos)
-    endif
-  endfunction
-
-  function! s:YcmPop()
-    let l:curpos = !empty(s:YcmTagStack) ? remove(s:YcmTagStack, -1) : []
-    if empty(l:curpos)
-      execute "normal! \<C-T>"
-    else
-      execute printf('b%d', l:curpos[0])
-      let l:curpos[0] = 0
-      call setpos('.', l:curpos)
-    endif
-  endfunction
-
-  execute printf('nnoremap <C-]> :call %s()<CR>',
-        \ s:script_function('s:YcmGoToDefinition'))
-  execute printf('nnoremap <C-T> :call %s()<CR>',
-        \ s:script_function('s:YcmPop'))
-
-  nnoremap <leader>yd :YcmCompleter GetDoc<CR>
-  nnoremap <leader>yr :YcmCompleter GoToReferences<CR>
 endif
 
 "//////////////////////"
@@ -1352,6 +1238,11 @@ if s:PlugActive('vim-gutentags')
 
   call s:SetupGutenTags()
 
+  let g:gutentags_file_list_command = {
+        \ 'markers': 
+        \ {'.pytags': 'find . -iname "*.py" -type f' }
+        \ }
+
   " Exuberant ctags has more limited tagging support than Universal ctags.
   " Since Universal ctags does not have an initial release yet add support for
   " additional languages using overrides as necessary.
@@ -1367,18 +1258,6 @@ endif
 if s:PlugActive('vimtex')
   let g:vimtex_quickfix_mode = 2
   let g:vimtex_quickfix_open_on_warning = 0
-
-  if s:PlugActive('YouCompleteMe')
-    if !exists('g:ycm_semantic_triggers')
-      let g:ycm_semantic_triggers = {}
-    endif
-    let g:ycm_semantic_triggers.tex = g:vimtex#re#youcompleteme
-
-    " Caching interferes with auto complete suggestions.
-    " It kind of sucks that this is a global setting, especially since it
-    " slows things down.
-    let g:ycm_cache_omnifunc = 0
-  endif
 
   if executable('skimpdf')
     let g:vimtex_view_method = 'skim'
@@ -1559,6 +1438,157 @@ if s:PlugActive('vim-choosewin')
         \ }
 
   nmap <leader>w <Plug>(choosewin)
+endif
+
+"/////////"
+" coc.nvim  {{{2
+"/////////"
+if s:PlugActive('coc.nvim')
+  let g:coc_global_extensions = [
+        \ 'coc-json',
+        \ 'coc-python',
+        \ 'coc-yaml',
+        \ 'coc-highlight'
+        \ ]
+
+  if s:PlugActive('vim-airline')
+    function! s:AirlineCocFunction(...)
+    endfunction
+
+    call airline#parts#define('coc', {
+          \ 'function': s:script_function('s:AirlineCocFunction'),
+          \ })
+
+    " Custom sections for better truncation
+    function! s:AirlineCoc(builder, context, ...)
+      let l:section = []
+      call add(l:section, get(w:, 'airline_section_c', g:airline_section_c))
+
+      let l:winwidth = winwidth(a:context.winnr)
+      let l:pathlen = strlen(s:AirlinePath(l:winwidth, a:context.bufnr))
+      if l:winwidth - l:pathlen > 120
+        call add(l:section, ' %{coc#status()}')
+      endif
+
+      let w:airline_section_c = airline#section#create(l:section)
+    endfunction
+
+    call airline#add_statusline_func(s:script_function('s:AirlineCoc'))
+    
+    " Only needed if I replace neomake with coc.nvim as it wants to display
+    " the number of errors and warnings, which neomake currently does.
+    " let g:airline_extensions += ['coc']
+  endif
+
+  function! s:check_back_space() abort
+    let col = col('.') - 1
+    return !col || getline('.')[col - 1]  =~ '\s'
+  endfunction
+
+  " Use <tab> to trigger completion or advance to next suggestion
+  inoremap <silent><expr> <Tab>
+        \ pumvisible() ? "\<C-n>" :
+        \ <SID>check_back_space() ? "\<Tab>" :
+        \ coc#refresh()
+
+  " Use <c-space> to always trigger completion.
+  inoremap <silent><expr> <c-space> coc#refresh()
+
+  " use <tab> for trigger completion and navigate to the next complete item
+  inoremap <silent><expr> <Tab> pumvisible() ? "\<C-n>" : "\<Tab>"
+
+  " use <shift-tab> and navigate to the next complete item
+  inoremap <silent><expr> <S-Tab> pumvisible() ? "\<C-p>" : "\<S-Tab>"
+
+  " Make <cr> select the first completion item and confirm the completion
+  " when no item has been selected in addition to formatting code on <cr>:
+  inoremap <silent><expr> <cr> pumvisible() ? coc#_select_confirm() : "\<CR>\<c-r>=coc#on_enter()\<CR>"
+
+  " Automatically close completion window when completion is done
+  autocmd vimrc CompleteDone * if pumvisible() == 0 | pclose | endif
+
+  " Remap keys for gotos
+  nmap <silent> gr <Plug>(coc-references)
+
+  " Use K to show documentation in preview window
+  nnoremap <silent> K :call <SID>show_documentation()<CR>
+
+  function! s:show_documentation()
+    if (index(['vim','help'], &filetype) >= 0)
+      execute 'h '.expand('<cword>')
+    else
+      call CocActionAsync('doHover')
+    endif
+  endfunction
+
+  " Highlight symbol under cursor on CursorHold
+  autocmd vimrc CursorHold * silent call CocActionAsync('highlight')
+
+  " Need to change updatetime for CursorHold, but also effects writting the
+  " swapfile to disk. The default of 4000ms is too long to wait for
+  " highlights, but hopefully 300ms is not to onerous for writting the swap
+  " file.
+  set updatetime=300
+
+  " Remap for rename current word
+  nmap <leader>rn <Plug>(coc-rename)
+
+  " Remap for format selected region
+  xmap <leader>f  <Plug>(coc-format-selected)
+  nmap <leader>f  <Plug>(coc-format-selected)
+
+  " Setup formatexpr specified filetype(s).
+  autocmd vimrc FileType typescript,json setl formatexpr=CocAction('formatSelected')
+
+  " Update signature help on jump placeholder
+  autocmd vimrc User CocJumpPlaceholder call CocActionAsync('showSignatureHelp')
+
+  " Remap for do codeAction of selected region, ex: `<leader>aap` for current paragraph
+  xmap <leader>a  <Plug>(coc-codeaction-selected)
+  nmap <leader>a  <Plug>(coc-codeaction-selected)
+
+  " Remap for do codeAction of current line
+  nmap <leader>ac  <Plug>(coc-codeaction)
+  " Fix autofix problem of current line
+  nmap <leader>qf  <Plug>(coc-fix-current)
+
+  " Create mappings for function text object, requires document symbols feature of languageserver.
+  xmap if <Plug>(coc-funcobj-i)
+  xmap af <Plug>(coc-funcobj-a)
+  omap if <Plug>(coc-funcobj-i)
+  omap af <Plug>(coc-funcobj-a)
+
+  " TODO: <C-d> inteferes with movement commands
+  " Use <C-d> for select selections ranges, needs server support, like: coc-tsserver, coc-python
+  " nmap <silent> <C-d> <Plug>(coc-range-select)
+  " xmap <silent> <C-d> <Plug>(coc-range-select)
+
+  " Use `:CocFormat` to format current buffer
+  command! -nargs=0 CocFormat :call CocAction('format')
+
+  " Use `:CocFold` to fold current buffer
+  command! -nargs=? CocFold :call CocAction('fold', <f-args>)
+
+  " use `:CocSortImports` for organize import of current buffer
+  command! -nargs=0 CocSortImports :call CocAction('runCommand', 'editor.action.organizeImport')
+
+  " Using CocList
+  " Show all diagnostics
+  nnoremap <silent> <space>a  :<C-u>CocList diagnostics<cr>
+  " Manage extensions
+  nnoremap <silent> <space>e  :<C-u>CocList extensions<cr>
+  " Show commands
+  nnoremap <silent> <space>c  :<C-u>CocList commands<cr>
+  " Find symbol of current document
+  nnoremap <silent> <space>o  :<C-u>CocList outline<cr>
+  " Search workspace symbols
+  nnoremap <silent> <space>s  :<C-u>CocList -I symbols<cr>
+  " Do default action for next item.
+  nnoremap <silent> <space>j  :<C-u>CocNext<CR>
+  " Do default action for previous item.
+  nnoremap <silent> <space>k  :<C-u>CocPrev<CR>
+  " Resume latest coc list
+  nnoremap <silent> <space>p  :<C-u>CocListResume<CR>
 endif
 
 " vim: set sw=2 sts=2 fdm=marker:
