@@ -358,13 +358,13 @@ sudo_allowed
 while sudo_allowed; do sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 
 # Ensure that we can actually, like, compile anything.
-if [[ ! "$(type -P gcc)" ]] && is_osx; then
+if is_osx && ([[ ! "$(type -P gcc)" ]] || ! xcrun --version &>/dev/null); then
   # Get and install Xcode CLI tools
   e_header "Installing XCode Command Line Tools"
 
   # See https://raw.githubusercontent.com/timsutton/osx-vm-templates/master/LICENSE.md
   export INSTALL_XCODE_CLI_TOOLS=true
-  bash -c "$(curl -fsSL https://raw.githubusercontent.com/timsutton/osx-vm-templates/master/scripts/xcode-cli-tools.sh)"
+  bash -c "$(curl -fsSL https://raw.githubusercontent.com/rtrouton/rtrouton_scripts/master/rtrouton_scripts/install_xcode_command_line_tools/install_xcode_command_line_tools.sh)"
 
   # If an auto install didn't work then bail
   if [[ $? != 0 ]]; then

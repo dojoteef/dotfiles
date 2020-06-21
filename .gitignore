@@ -15,5 +15,8 @@
 /link/.rbenv/versions/
 /link/.rbenv/version
 
+# Don't commit brew cask lock files
+conf/osx/brew/*.lock.json
+
 # Ignore any file with LOCAL in the name (good for per-machine vars/functions)
 *LOCAL*

@@ -271,14 +271,14 @@ let g:mapleader=','
 let g:maplocalleader='\'
 
 " Move more naturally when wrapping is enabled.
-noremap <silent> j gj
-noremap <silent> k gk
+" noremap <silent> j gj
+" noremap <silent> k gk
 " noremap <silent> 0 g0
 " noremap <silent> $ g$
 
 " For operator pending mode
-onoremap <silent> j gj
-onoremap <silent> k gk
+" onoremap <silent> j gj
+" onoremap <silent> k gk
 " onoremap <silent> 0 g0
 " onoremap <silent> $ g$
 
@@ -1065,7 +1065,7 @@ if s:PlugActive('neomake')
 
   function! s:PylintEnable(all, ...) abort
     let l:pylint_makers = uniq(sort(filter(copy(a:000), 'executable(v:val)')))
-    let l:enabled_makers = ['flake8', 'mypy'] + l:pylint_makers
+    let l:enabled_makers = ['mypy'] + l:pylint_makers
 
     let l:bufnrs = []
     if a:all
@@ -1094,7 +1094,7 @@ if s:PlugActive('neomake')
     endif
   endfunction
 
-  let g:neomake_python_enabled_makers = filter(['flake8', 'mypy', 'pylint'], 'executable(v:val)')
+  let g:neomake_python_enabled_makers = filter(['mypy', 'pylint'], 'executable(v:val)')
   command! -nargs=* -bang -complete=customlist,s:PylintVersions
         \ NeomakePylintEnable call s:PylintEnable(<bang>0, <f-args>)
 
@@ -1270,6 +1270,7 @@ endif
 " vimtex {{{2
 "//////////"
 if s:PlugActive('vimtex')
+  let g:tex_flavor = 'latex'
   let g:vimtex_quickfix_mode = 2
   let g:vimtex_quickfix_open_on_warning = 0
 
@@ -1464,6 +1465,10 @@ if s:PlugActive('coc.nvim')
         \ 'coc-yaml',
         \ 'coc-highlight'
         \ ]
+
+  if s:PlugActive('vimtex')
+    let g:coc_global_extensions += ['coc-vimtex']
+  endif
 
   if s:PlugActive('vim-airline')
     function! s:AirlineCocFunction(...)

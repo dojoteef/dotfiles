@@ -28,11 +28,6 @@ if [[ "$(type -p go)" ]] && [[ ! "$(type -p golint)" ]]; then
   fi
 fi
 
-if [[ "$(type -p pip2)" ]]; then
-  e_header "Installing pylint"
-  pip2 -q install --upgrade pylint
-fi
-
 if [[ "$(type -p pip3)" ]]; then
   e_header "Installing pylint3"
   pip3 -q install --upgrade pylint

@@ -1,0 +1,70 @@
+#!/usr/bin/env python3
+"""
+Filter latex files such that we join lines unless they are separated by at
+least two whitespace, i.e. it's considered a new paragraph by latex.
+"""
+import argparse
+import contextlib
+import subprocess
+import tempfile
+
+
+def parse_args():
+    """ Parse the command line arguments """
+    parser = argparse.ArgumentParser()
+    parser.add_argument("local", type=str)
+    parser.add_argument("remote", type=str)
+
+    return parser.parse_args()
+
+
+def merge_lines(path, output_file):
+    """
+    Filter the file at the path to join lines unless separated by at least
+    two whitespace and write those lines into the output file
+    """
+    merge_list = []  # lines to merge together
+    with open(path, "rt") as file:
+        for line in file.readlines():
+            stripped = line.rstrip()
+            if not stripped:
+                if merge_list:
+                    output_file.write(" ".join(merge_list) + "\n")
+                merge_list = []
+            else:
+                merge_list.append(stripped)
+
+        if merge_list:
+            output_file.write(" ".join(merge_list) + "\n")
+
+    # Make sure all output has been flushed to disk
+    output_file.flush()
+
+
+def main():
+    """ The main entry point of the file """
+    args = parse_args()
+    with contextlib.ExitStack() as stack:
+        local_file = stack.enter_context(tempfile.NamedTemporaryFile("wt"))
+        remote_file = stack.enter_context(tempfile.NamedTemporaryFile("wt"))
+
+        merge_lines(args.local, local_file)
+        merge_lines(args.remote, remote_file)
+
+        subprocess.run(  # pylint:disable=subprocess-run-check
+            [
+                "git",
+                "--no-pager",
+                "diff",
+                "--minimal",
+                "--no-index",
+                "--color-words",
+                local_file.name,
+                remote_file.name,
+            ],
+            env={},
+        )
+
+
+if __name__ == "__main__":
+    main()
