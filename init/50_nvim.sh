@@ -40,8 +40,8 @@ fi
 
 if [[ "$(type -P nvim)" ]]; then
   e_header "Ensuring latest neovim packages for python2/3 are installed"
-  pip2 -q install --upgrade neovim
-  pip3 -q install --upgrade neovim
+  pip2 -q install --upgrade pynvim
+  pip3 -q install --upgrade pynvim
   pip3 -q install --upgrade neovim-remote
 fi
 

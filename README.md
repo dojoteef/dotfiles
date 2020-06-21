@@ -49,8 +49,7 @@ Scripts in the `/init` subdirectory will be executed. A whole bunch of things wi
 
 * Minor XCode init via the [init/10_osx_xcode.sh](init/10_osx_xcode.sh) script
 * Homebrew via the [init/20_osx_homebrew.sh](init/20_osx_homebrew.sh) script
-* Homebrew recipes via the [init/30_osx_homebrew_recipes.sh](init/30_osx_homebrew_recipes.sh) script
-* Homebrew casks via the [init/30_osx_homebrew_casks.sh](init/30_osx_homebrew_casks.sh) script
+* Homebrew bundles via the [init/20_osx_homebrew.sh](init/20_osx_homebrew.sh) script
 
 #### Ubuntu
 * APT packages via the [init/20_ubuntu_apt.sh](init/20_ubuntu_apt.sh) script

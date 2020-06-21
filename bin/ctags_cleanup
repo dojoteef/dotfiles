@@ -14,7 +14,7 @@ function getdirectories() {
   globpaths=("$(for f in "${filenames[@]}"; do getglobpath "$f" "$or"; or='-or'; done)")
   [[ "$OSTYPE" =~ ^darwin ]] && findcmd='find -x' || findcmd='find'
 
-  bash -c "$findcmd / -type d ! -perm -a+r -prune -or -type d \( ${globpaths[*]} \) -print"
+  bash -c "$findcmd / -type d ! -readable -prune -or -type d \( ${globpaths[*]} \) -print"
 }
 
 cachedir=$DOTFILES/caches/ctags
@@ -24,22 +24,22 @@ fi
 
 # Get all tags files in the cache directory
 shopt -s nullglob
-filenames=($cachedir/*-tags)
+filenames=($cachedir/*-tags.last)
 if [[ "${#filenames[@]}" -eq 0 ]]; then
   exit 0
 fi
 
 # Get the base filename
-filenames=("$(for f in "${filenames[@]}"; do basename "$f"; done)")
+filenames=($(for f in "${filenames[@]}"; do basename "${f%.last}"; done))
 
 # Find which directories still exist
 directories=("$(getdirectories)")
 
 # Then convert the directory name to the tag filename
-found=("$(for d in "${directories[@]}"; do echo "$d" | tr '/\: ' '---_' | sed -e's/^-*//' | xargs printf "%s-tags\n"; done)")
+found=($(for d in "${directories[@]}"; do echo "$d" | tr '/\: ' '---_' | sed -e's/^-*//' | xargs printf "%s-tags\n"; done))
 
 # Determine which tags belong to directories that no longer exist
-missing=("$(echo "${filenames[@]}" "${found[@]}" | tr ' ' '\n' | sort | uniq -u)")
+missing=($(echo "${filenames[@]}" "${found[@]}" | tr ' ' '\n' | sort | uniq -u))
 
 # Remove the tags for the missing directories
 for m in "${missing[@]}"; do
