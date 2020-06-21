@@ -128,6 +128,7 @@ Plug 'tpope/vim-surround'
 Plug 'tpope/vim-repeat'
 Plug 'tpope/vim-commentary'
 Plug 'tpope/vim-dispatch'
+Plug 'rickhowe/diffchar.vim'
 
 " Dev icons (must be last)
 " https://github.com/ryanoasis/vim-devicons#step-3-configure-vim
