@@ -186,13 +186,13 @@ defaults write NSGlobalDomain AppleKeyboardUIMode -int 3
 # Set language and text formats
 # Note: if you’re in the US, replace `EUR` with `USD`, `Centimeters` with
 # `Inches`, `en_GB` with `en_US`, and `true` with `false`.
-defaults write NSGlobalDomain AppleLanguages -array "en" "ru"
+defaults write NSGlobalDomain AppleLanguages -array "en" "ru" "ar"
 defaults write NSGlobalDomain AppleLocale -string "en_US@currency=USD"
 defaults write NSGlobalDomain AppleMeasurementUnits -string "Inches"
 defaults write NSGlobalDomain AppleMetricUnits -bool false
 
 # Set the timezone; see `sudo systemsetup -listtimezones` for other values
-sudo systemsetup -settimezone "America/Los_Angeles" > /dev/null
+sudo systemsetup -settimezone "America/New_York" > /dev/null
 
 # Disable auto-correct
 defaults write NSGlobalDomain NSAutomaticSpellingCorrectionEnabled -bool false
@@ -236,7 +236,7 @@ defaults write com.apple.finder FXEnableExtensionChangeWarning -bool false
 defaults write NSGlobalDomain com.apple.springing.enabled -bool true
 
 # Set a low spring loading delay for directories
-defaults write NSGlobalDomain com.apple.springing.delay -float 0.2
+defaults write NSGlobalDomain com.apple.springing.delay -float 0.3
 
 # Avoid creating .DS_Store files on network volumes
 defaults write com.apple.desktopservices DSDontWriteNetworkStores -bool true
@@ -254,7 +254,7 @@ sudo chflags nohidden /Volumes
 # Dock, Dashboard and hot corners
 #################################
 
-# Set the icon size of Dock items to 36 pixels
+# Set the icon size of Dock items to 65 pixels
 defaults write com.apple.dock tilesize -int 65
 
 # Change minimize/maximize window effect
@@ -296,7 +296,7 @@ defaults write com.apple.dock showhidden -bool true
 # 10: Put display to sleep
 # 11: Launchpad
 # 12: Notification Center
-# Top left screen corner → Mission Control
+# Top left screen corner → Put display to sleep
 defaults write com.apple.dock wvous-tl-corner -int 10
 defaults write com.apple.dock wvous-tl-modifier -int 0
 # Top right screen corner → 

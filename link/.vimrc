@@ -21,6 +21,10 @@ if has('unix')
   let g:ubuntu = s:uname =~? 'ubuntu'
 endif
 
+" Must be before loading the plugin
+" See https://github.com/sheerun/vim-polyglot/issues/546
+let g:polyglot_disabled = []
+
 " Where plugins get installed
 let s:plugin_directory = '~/.vim/plugged'
 
@@ -53,7 +57,6 @@ Plug 'airblade/vim-rooter'
 
 " Syntax
 Plug 'neomake/neomake'
-Plug 'sheerun/vim-polyglot'
 Plug 'Yggdroot/indentLine'
 Plug 'ynkdir/vim-vimlparser', { 'for': 'vim' }
       \ | Plug 'syngan/vim-vimlint', { 'for': 'vim' }
@@ -69,6 +72,9 @@ if executable('ctags')
   Plug 'ludovicchabant/vim-gutentags' ", { 'branch': 'buffer-tagfiles' }
   Plug 'majutsushi/tagbar'
 endif
+
+" Debugging
+Plug 'puremourning/vimspector', {'do': './install_gadget.py --enable-c --enable-python'}
 
 " Completions
 if executable('go')
@@ -90,6 +96,7 @@ Plug 'scrooloose/nerdtree', { 'on': ['NERDTree', 'NERDTreeToggle', 'NERDTreeFind
       \ | Plug 'Xuyuanp/nerdtree-git-plugin', { 'on': ['NERDTree', 'NERDTreeToggle', 'NERDTreeFind'] }
 
 if executable('latexmk') || executable('latexrun')
+  let g:polyglot_disabled += ['latex']
   Plug 'lervag/vimtex'
 endif
 
@@ -108,6 +115,12 @@ Plug 'tpope/vim-repeat'
 Plug 'tpope/vim-commentary'
 Plug 'tpope/vim-dispatch'
 Plug 'rickhowe/diffchar.vim'
+Plug 'google/vim-jsonnet'
+
+" Polyglot is next to last, such that we can ensure we disable certain
+" filetypes if needed, see
+" https://github.com/sheerun/vim-polyglot/issues/546
+Plug 'sheerun/vim-polyglot'
 
 " Dev icons (must be last)
 " https://github.com/ryanoasis/vim-devicons#step-3-configure-vim
@@ -263,6 +276,10 @@ autocmd vimrc FileType tex set wrap
 
 " Use 4 spaces for indenting in java
 autocmd vimrc FileType java set ts=4 sts=4 sw=4
+
+" Use json indenting for jsonnet; it's close enough, and there doesn't seem to
+" be a dedicated indenter for jsonnet.
+autocmd vimrc FileType jsonnet set indentexpr=GetJSONIndent()
 
 """"""""""""""""""""""""
 " KEYMAPPINGS {{{1
@@ -918,7 +935,7 @@ if s:PlugActive('nerdtree')
         \ '\.map$',
         \ '.DS_Store'
         \]
-  let g:NERDTreeIndicatorMapCustom = {
+  let g:NERDTreeGitStatusIndicatorMapCustom = {
         \ 'Modified' : '✹',
         \ 'Staged' : '✚',
         \ 'Untracked' : '✭',
@@ -1127,6 +1144,7 @@ if s:PlugActive('neomake')
 
   " For now disable
   let g:neomake_tex_enabled_makers = []
+  let g:neomake_cpp_enabled_makers = []
 
   call neomake#configure#automake('nrw', 500)
 endif
@@ -1184,7 +1202,7 @@ endif
 " vim-rooter {{{2
 "////////////"
 if s:PlugActive('vim-rooter')
-  let g:rooter_use_lcd = 1
+  let g:rooter_cd_cmd='lcd'
   let g:rooter_silent_chdir = 1
 endif
 
@@ -1390,13 +1408,6 @@ if s:PlugActive('vim-polyglot')
   " Make syntax highlighting correct, but potentially slower
   let g:python_slow_sync = 1
   let g:python_highlight_all = 1
-
-  if !exists('g:polyglot_disabled')
-    let g:polyglot_disabled = []
-  endif
-  if s:PlugActive('vimtex')
-    let g:polyglot_disabled += ['latex']
-  endif
 endif
 
 "//////////////"
@@ -1462,8 +1473,9 @@ endif
 if s:PlugActive('coc.nvim')
   let g:coc_global_extensions = [
         \ 'coc-json',
-        \ 'coc-python',
         \ 'coc-yaml',
+        \ 'coc-clangd',
+        \ 'coc-python',
         \ 'coc-highlight'
         \ ]
 
@@ -1502,7 +1514,7 @@ if s:PlugActive('coc.nvim')
 
   function! s:check_back_space() abort
     let col = col('.') - 1
-    return !col || getline('.')[col - 1]  =~ '\s'
+    return !col || getline('.')[col - 1]  =~# '\s'
   endfunction
 
   " Use <tab> to trigger completion or advance to next suggestion
@@ -1558,7 +1570,7 @@ if s:PlugActive('coc.nvim')
   nmap <leader>f  <Plug>(coc-format-selected)
 
   " Setup formatexpr specified filetype(s).
-  autocmd vimrc FileType typescript,json setl formatexpr=CocAction('formatSelected')
+  autocmd vimrc FileType typescript,json,jsonnet setl formatexpr=CocAction('formatSelected')
 
   " Update signature help on jump placeholder
   autocmd vimrc User CocJumpPlaceholder call CocActionAsync('showSignatureHelp')

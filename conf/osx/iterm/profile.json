@@ -15,7 +15,9 @@
       "Non-ASCII Anti Aliased" : true,
       "Vertical Spacing" : 1,
       "Horizontal Spacing" : 1,
-      "Character Encoding" : 4
+      "Character Encoding" : 4,
+      "Option Key Sends": 2,
+      "Right Option Key Sends": 2
     }
   ]
 }
