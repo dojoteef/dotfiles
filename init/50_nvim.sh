@@ -42,8 +42,8 @@ if [[ "$(type -P nvim)" ]]; then
   e_header "Ensuring latest neovim packages for python3 are installed"
   # pip3 -q install --upgrade pynvim
   # See https://github.com/mhinz/neovim-remote/issues/134#issuecomment-586787280
-  pip3 -q install pynvim == 0.3.2
-  pip3 -q install --upgrade neovim-remote
+  python3 -m pip -q install pynvim==0.3.2
+  python3 -m pip -q install --upgrade neovim-remote
 fi
 
 ###########################################################################
