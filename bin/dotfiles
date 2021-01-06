@@ -132,8 +132,9 @@ export -f is_centos
 export -f is_ubuntu
 export -f get_os
 
+export SUDO_DISABLED
 function sudo_allowed() {
-  sudo -v 2>/dev/null || return 1
+  [[ $SUDO_DISABLED -gt 0 ]] || sudo -v 2>/dev/null || return 1
 }
 export -f sudo_allowed
 
