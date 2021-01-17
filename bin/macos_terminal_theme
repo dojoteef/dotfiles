@@ -102,5 +102,5 @@ if args.themes.count > 0 {
     print("Unable to source com.apple.Terminal defaults.")
   }
 } else {
-  print("Usage: osx_terminal_theme [-d/--dir <dir>] [-D/--default <default theme>] [-f/--font <font>] [-s/--font-size <number>] [-h/--font-height-spacing <number>] <theme name>...")
+  print("Usage: macos_terminal_theme [-d/--dir <dir>] [-D/--default <default theme>] [-f/--font <font>] [-s/--font-size <number>] [-h/--font-height-spacing <number>] <theme name>...")
 }

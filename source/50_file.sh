@@ -6,7 +6,7 @@
 umask 022
 
 # Always use color output for `ls`
-if is_osx; then
+if is_macos; then
   alias ls="CLICOLOR_FORCE=1 command ls -G"
 else
   alias ls="CLICOLOR_FORCE=1 command ls --color"
@@ -26,6 +26,7 @@ fi
 alias fs="stat -f '%z bytes'"
 
 if [[ -d ~/.fzf/bin ]]; then
+  # shellcheck source=/dev/null
   [ -f ~/.fzf.bash ] && source ~/.fzf.bash
   if [[ "$(type -P ag)" ]]; then
     export FZF_DEFAULT_COMMAND='ag --hidden -g ""'

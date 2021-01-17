@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Where the magic happens.
 export DOTFILES=~/.dotfiles
 
@@ -8,20 +9,22 @@ if [[ -d $DOTFILES/bin ]] && [[ ! "$PATH" == "$DOTGLOB" ]]; then
 fi
 
 # Source all files in "source"
-function src() {
+src() {
   local file
-  for file in $DOTFILES/source/*; do
+  for file in "$DOTFILES"/source/*; do
+    # shellcheck source=/dev/null
     source "$file"
   done
 
   # Local .bashrc to specify machine specific settings and overrides
   if [[ -f "$HOME/.bashrc.local" ]]; then
+    # shellcheck source=/dev/null
     source "$HOME/.bashrc.local"
   fi
 }
 
 # Run dotfiles script, then source.
-function dotfiles() {
+dotfiles() {
   $DOTFILES/bin/dotfiles "$@" && src
 }
 

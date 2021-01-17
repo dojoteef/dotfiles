@@ -15,7 +15,7 @@ alias fgrep='grep --color=auto'
 export LESS=-XR
 
 # Set the terminal's title bar.
-function titlebar() {
+titlebar() {
   echo -n $'\e]0;'"$*"$'\a'
 }
 

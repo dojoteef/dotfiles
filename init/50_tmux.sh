@@ -14,3 +14,6 @@ else
   "$tmux_plugins/bin/install_plugins" # install new plugins
   "$tmux_plugins/bin/update_plugins" all # update existing plugins
 fi
+
+# Use the tmux-256color terminfo as defined by kakoune
+curl -fsSL https://raw.githubusercontent.com/mawww/kakoune/f140b01b/contrib/tmux-256color.terminfo | tic /dev/stdin

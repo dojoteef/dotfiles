@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# OSX-only stuff. Abort if not OSX.
-is_osx || exit 1
+# macOS-only stuff. Abort if not macOS.
+is_macos || exit 1
 
 # Some tools look for XCode, even though they don't need it.
 # https://github.com/joyent/node/issues/3681

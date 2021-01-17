@@ -1,0 +1,13 @@
+colorscheme zenburn
+eval %sh{kak-lsp --kakoune -s $kak_session}
+
+hook global WinSetOption filetype=(python) %{
+    lsp-enable-window
+    lsp-auto-hover-enable
+    lsp-auto-hover-insert-mode-enable
+    lsp-auto-signature-help-enable
+    hook window BufWritePre .* lsp-formatting-sync
+}
+
+set-option global lsp_auto_highlight_references true
+set-option global lsp_server_configuration pyls.plugins.pyls_mypy.enabled=true

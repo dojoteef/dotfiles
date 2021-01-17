@@ -19,22 +19,11 @@ if sudo_allowed; then
     e_header "Installing neovim"
   fi
 
-  if is_osx; then
-    # Exit if Homebrew is not installed.
-    [[ ! "$(type -P brew)" ]] && e_error "Brew recipes need Homebrew to install." && return 1
+  # Exit if Homebrew is not installed.
+  [[ ! "$(type -P brew)" ]] && e_error "Brew recipes need Homebrew to install." && return 1
 
-    brew bundle "--file=$DOTFILES/conf/osx/brew/neovim" check &> /dev/null
-    if [[ $? -ne 0 ]]; then
-      brew bundle "--file=$DOTFILES/conf/osx/brew/neovim"
-    fi
-  else
-    # Add the Personal Package Archive for neovim
-    sudo apt-get -qq install software-properties-common
-    sudo add-apt-repository -y ppa:neovim-ppa/unstable
-    sudo apt-get -qq update
-
-    # Install it!
-    sudo apt-get -qq install neovim
+  if brew bundle "--file=$DOTFILES/conf/brew/neovim" check &> /dev/null; then
+    brew bundle "--file=$DOTFILES/conf/brew/neovim"
   fi
 fi
 
@@ -57,7 +46,7 @@ fi
 # https://github.com/neovim/neovim/issues/2048#issuecomment-78045837
 # https://github.com/neovim/neovim/issues/2048#issuecomment-217755170
 ###########################################################################
-function fix_terminfo() {
+fix_terminfo() {
   local term override_dir terminfo_dir termios_erase terminfo_erase
   term=$1
   terminfo_dir=$DOTFILES/caches/terminfo
@@ -67,7 +56,7 @@ function fix_terminfo() {
   fi
 
   # First see what termios thinks erase is
-  if is_osx; then
+  if is_macos; then
     termios_erase="$(stty -g | grep -w 'erase' | sed 's/.*[^a-z]erase=\([^:]\{1,\}\).*/0x\1/' | xargs printf %o)"
   else
     termios_erase="$(stty -g | awk -F ':' '{print "0x"$7}' | xargs printf %o)"

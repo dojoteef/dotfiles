@@ -6,9 +6,9 @@ cache_dir=$DOTFILES/caches/fonts
 # Create directory if it doesn't exist.
 [[ -d "$cache_dir" ]] || mkdir -p "$cache_dir"
 
-if is_osx; then
+if is_macos; then
   font_dir="$HOME/Library/Fonts"
-elif is_ubuntu || is_redhat || is_centos; then
+elif is_linux; then
   font_dir="$HOME/.local/share/fonts"
 else
   echo "Skipping font install. Unsupported OS."
@@ -16,7 +16,7 @@ else
 fi
 mkdir -p "$font_dir"
 
-function getnerdfont() {
+getnerdfont() {
   baseurl="https://github.com/ryanoasis/nerd-fonts/raw"
   version=0.8.0
   family="$1"
@@ -28,7 +28,7 @@ function getnerdfont() {
   cp "$outfile" "$font_dir"
 
   # Reset font cache on Linux
-  if [[ -n $(which fc-cache) ]]; then
+  if command -v fc-cache; then
     fc-cache -f "$font_dir"
   fi
   echo "$2 installed"

@@ -2,14 +2,14 @@
 # Inspiration for this came from:
 # https://github.com/mathiasbynens/dotfiles/blob/master/.macos
 
-# OSX-only stuff. Abort if not OSX.
-is_osx || exit 1
+# macOS-only stuff. Abort if not macOS.
+is_macos || exit 1
 
 #######################
 # Useful functions
 #######################
 plistcmd="/usr/libexec/PlistBuddy -c"
-function ensure_plist_key() {
+ensure_plist_key() {
   local plist key dtype
   plist=$1
   key=$(printf '%q' "$2")
@@ -17,13 +17,12 @@ function ensure_plist_key() {
 
   echo "Ensuring $key"
 
-  eval "$plistcmd" "\"Print $key\"" "$plist" &> /dev/null
-  if [[ $? -ne 0 ]]; then
+  if eval "$plistcmd" "\"Print $key\"" "$plist" &> /dev/null; then
     eval "$plistcmd" "\"Add $key $dtype\"" "$plist"
   fi
 }
 
-function set_plist_value() {
+set_plist_value() {
   ensure_plist_key "$1" "$2" "$4"
 
   local plist key value
@@ -60,7 +59,7 @@ find "$theme_dir" -iname '*.itermcolors' -print0 | while read -r -d $'\0' theme;
   fi
 done
 
-nerd_font="$(osx_list_nerd_fonts | head -n 1)"
+nerd_font="$(macos_list_nerd_fonts | head -n 1)"
 
 #######################
 # Terminal
@@ -76,9 +75,9 @@ defaults write com.apple.terminal SecureKeyboardEntry -bool true
 
 echo "Setting default theme to Zenburn"
 if [[ "$nerd_font" ]]; then
-  "$DOTFILES/bin/osx_terminal_theme" Zenburn -d "$theme_dir/terminal" -D Zenburn -f "$nerd_font" -s 12
+  "$DOTFILES/bin/macos_terminal_theme" Zenburn -d "$theme_dir/terminal" -D Zenburn -f "$nerd_font" -s 12
 else
-  "$DOTFILES/bin/osx_terminal_theme" Zenburn -d "$theme_dir/terminal" -D Zenburn
+  "$DOTFILES/bin/macos_terminal_theme" Zenburn -d "$theme_dir/terminal" -D Zenburn
 fi
 
 #######################
@@ -91,7 +90,7 @@ if open -Ra iterm &> /dev/null; then
   export DOTFONTNAME
   export DOTPROFILE
 
-  OLD_DOTVARS=(${DOTVARS[*]})
+  IFS=" " read -r -a OLD_DOTVARS <<< "${DOTVARS[*]}"
   DOTVARS=("profile" "fontname" "fontsize")
   if [[ "$nerd_font" ]]; then
     DOTFONTSIZE=12
@@ -105,7 +104,7 @@ if open -Ra iterm &> /dev/null; then
 
   # Use a preset profile
   iterm_domain="com.googlecode.iterm2"
-  iterm_conf_dir="$DOTFILES/conf/osx/iterm"
+  iterm_conf_dir="$DOTFILES/conf/macos/iterm"
   preferences_dir="$HOME/Library/Preferences"
   iterm_profile_dir="$HOME/Library/Application Support/iTerm2/DynamicProfiles"
   if [[ -d "$iterm_profile_dir" ]]; then
@@ -118,7 +117,7 @@ if open -Ra iterm &> /dev/null; then
   if [[ ! -f "$preferences_dir/$iterm_domain.plist" ]]; then
     dot_substitute "$iterm_conf_dir/full.plist" "$preferences_dir/$iterm_domain.plist"
   else
-    if [[ "$TERM_PROGRAM" == "iTerm.app" ]] || ps wwwaux | egrep -q 'iTerm\.app' >/dev/null; then
+    if [[ "$TERM_PROGRAM" == "iTerm.app" ]] || pgrep -q iTerm2 >/dev/null; then
       e_error "You appear to have iTerm running. You must exit the" \
         "application before continuing."
       read -rp "Close iTerm (Press ENTER to continue)"; echo
@@ -126,7 +125,7 @@ if open -Ra iterm &> /dev/null; then
 
     defaults write $iterm_domain "Default Bookmark Guid" "$DOTPROFILE"
   fi
-  DOTVARS=(${OLD_DOTVARS[*]})
+  IFS=" " read -r -a DOTVARS <<< "${OLD_DOTVARS[*]}"
 fi
 
 
@@ -299,13 +298,13 @@ defaults write com.apple.dock showhidden -bool true
 # Top left screen corner → Put display to sleep
 defaults write com.apple.dock wvous-tl-corner -int 10
 defaults write com.apple.dock wvous-tl-modifier -int 0
-# Top right screen corner → 
+# Top right screen corner →
 defaults write com.apple.dock wvous-tr-corner -int 0
 defaults write com.apple.dock wvous-tr-modifier -int 0
-# Bottom left screen corner → 
+# Bottom left screen corner →
 defaults write com.apple.dock wvous-bl-corner -int 0
 defaults write com.apple.dock wvous-bl-modifier -int 0
-# Bottom right screen corner → 
+# Bottom right screen corner →
 defaults write com.apple.dock wvous-br-corner -int 0
 defaults write com.apple.dock wvous-br-modifier -int 0
 
@@ -422,14 +421,14 @@ if [[ "$TERM_PROGRAM" == "Apple_Terminal" ]]; then
     completes restart Terminal.app to ensure the changes are correctly applied."
 
   # Remove "Terminal" it is set as the first element in the array
-  affected_apps=(${affected_apps[@]:1})
+  IFS=" " read -r -a affected_apps <<< "${affected_apps[@]:1}"
 fi
 
 e_arrow "To apply all settings you must exit the following applications: \
   $(join_strings "\n   " "${affected_apps[@]}")"
 
 if [[ $DOTDEFAULTS ]]; then
-  kill_affected='N' 
+  kill_affected='N'
 else
   read -r -n 1 -p "Close affected applications [y/N] " kill_affected; echo
 fi

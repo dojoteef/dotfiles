@@ -3,13 +3,13 @@
 trap 'errexit' ERR
 set -o errtrace
 
-function getglobpath() {
+getglobpath() {
   local globpath
   globpath=$(echo "$1" | sed -e's/\([^/]*\)-tags$/\1/' | tr "\-_" "??")
   printf '%s -path "/%s" ' "$2" "$globpath"
 }
 
-function getdirectories() {
+getdirectories() {
   local globpaths
   globpaths=("$(for f in "${filenames[@]}"; do getglobpath "$f" "$or"; or='-or'; done)")
   [[ "$OSTYPE" =~ ^darwin ]] && findcmd='find -x' || findcmd='find'

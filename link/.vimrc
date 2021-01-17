@@ -17,7 +17,7 @@ let g:tmux = $TMUX
 " Useful OS detection
 if has('unix')
   let s:uname = system('uname -a')
-  let g:osx = s:uname =~? 'darwin'
+  let g:macos = s:uname =~? 'darwin'
   let g:ubuntu = s:uname =~? 'ubuntu'
 endif
 
@@ -1034,7 +1034,8 @@ endif
 "/////////"
 if s:PlugActive('neomake')
   " For debugging
-  "let g:neomake_verbose = 3
+  " let g:neomake_verbose = 3
+  " let g:neomake_logfile = 'neomake.log'
 
   if s:PlugActive('vim-airline')
     let g:airline_extensions += ['neomake']

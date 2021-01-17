@@ -1,11 +1,11 @@
 #!/bin/bash -n
 
-# OSX-only stuff. Abort if not OSX.
-is_osx || return 1
+# macOS-only stuff. Abort if not macOS.
+is_macos || return 1
 
 # TODO: Revist this file!
 
-# Automatically pull the Github access token from the Keychain on OSX
+# Automatically pull the Github access token from the Keychain on macOS
 export GITHUB_ACCESS_TOKEN
 GITHUB_ACCESS_TOKEN=$(security find-generic-password -s github_access_token -a dojoteef -w)
 
@@ -14,6 +14,7 @@ GITHUB_ACCESS_TOKEN=$(security find-generic-password -s github_access_token -a d
 if [[ "$(type -P brew)" ]]; then
   export HOMEBREW_GITHUB_API_TOKEN=$GITHUB_ACCESS_TOKEN
   if [[ -f $(brew --prefix)/etc/bash_completion ]]; then
+    # shellcheck source=/dev/null
     source "$(brew --prefix)/etc/bash_completion"
   fi
 fi
@@ -29,17 +30,17 @@ alias c="tr -d '\n' | pbcopy"
 alias sudoedit="sudo -e"
 
 # Export Localization.prefPane text substitution rules.
-function txt_sub_backup() {
+txt_sub_backup() {
   local prefs=~/Library/Preferences/.GlobalPreferences.plist
-  local backup=$DOTFILES/conf/osx/NSUserReplacementItems.plist
+  local backup=$DOTFILES/conf/macos/NSUserReplacementItems.plist
   /usr/libexec/PlistBuddy -x -c "Print NSUserReplacementItems" "$prefs" > "$backup" &&
   echo "File ~${backup#$HOME} written."
 }
 
 # Import Localization.prefPane text substitution rules.
-function txt_sub_restore() {
+txt_sub_restore() {
   local prefs=~/Library/Preferences/.GlobalPreferences.plist
-  local backup=$DOTFILES/conf/osx/NSUserReplacementItems.plist
+  local backup=$DOTFILES/conf/macos/NSUserReplacementItems.plist
   if [[ ! -e "$backup" ]]; then
     echo "Error: file ~${backup#$HOME} does not exist!"
     return 1

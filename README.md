@@ -1,6 +1,6 @@
 # Dotfiles
 
-My OSX / Ubuntu dotfiles.
+My macOS / Linux dotfiles.
 
 ## About this project
 
@@ -18,7 +18,7 @@ That said I added a bit more bootstrapping such that you don't need to separatel
 
 When [dotfiles][dotfiles] is run for the first time, it does a few things:
 
-1. In Ubuntu, Git is installed if necessary via APT (it's already there in OSX).
+1. In Ubuntu, Git is installed if necessary via APT (it's already there in macOS).
 1. This repo is cloned into your user directory, under `~/.dotfiles`.
 1. Files in `/copy` are copied into `~/`. ([read more](#the-copy-step))
 1. Files in `/link` are symlinked into `~/`. ([read more](#the-link-step))
@@ -45,16 +45,13 @@ Any file in the `/link` subdirectory gets symlinked into `~/` with `ln -s`. Edit
 ### The "init" step
 Scripts in the `/init` subdirectory will be executed. A whole bunch of things will be installed, but _only_ if they aren't already.
 
-#### OS X
+#### macOS
 
-* Minor XCode init via the [init/10_osx_xcode.sh](init/10_osx_xcode.sh) script
-* Homebrew via the [init/20_osx_homebrew.sh](init/20_osx_homebrew.sh) script
-* Homebrew bundles via the [init/20_osx_homebrew.sh](init/20_osx_homebrew.sh) script
-
-#### Ubuntu
-* APT packages via the [init/20_ubuntu_apt.sh](init/20_ubuntu_apt.sh) script
+* Minor XCode init via the [init/10_macos_xcode.sh](init/10_macos_xcode.sh) script
 
 #### Both
+* Homebrew via the [init/20_homebrew.sh](init/20_homebrew.sh) script
+* Homebrew bundles via the [init/20_homebrew.sh](init/20_homebrew.sh) script
 * Vim plugins via the [init/50_vim.sh](init/50_vim.sh) script
 * [Fonts](https://github.com/powerline/fonts) via the [init/50_fonts.sh](init/50_fonts.sh) script
 
@@ -68,17 +65,17 @@ Also, before installing, be sure to [read my gently-worded note](#heed-this-crit
 
 ## Installation
 
-### OS X Notes
+### macOS Notes
 
 You need to have [XCode](https://developer.apple.com/downloads/index.action?=xcode) or, at the very minimum, the [XCode Command Line Tools](https://developer.apple.com/downloads/index.action?=command%20line%20tools), which are available as a much smaller download. For that reason the script will automatically install the XCode Command Line Tools if you do not already have them installed.
 
-_Tested in OSX 10.11_
+_Tested in macOS 10.15_
 
 ### Ubuntu Notes
 
 The install will auto update APT with `sudo apt-get -qq update && sudo apt-get -qq dist-upgrade` first.
 
-_Tested in Ubuntu 16.04 LTS_
+_Tested in Ubuntu 20.04 LTS_
 
 ### Heed this critically important warning before you install
 

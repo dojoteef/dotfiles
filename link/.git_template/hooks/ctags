@@ -10,7 +10,7 @@ set +o errexit
 set -o errtrace
 
 # exit handling
-function on_exit()
+on_exit()
 {
   rm -f "$tmpfile"
 }
@@ -45,7 +45,7 @@ if [[ "$rev" == "HEAD" ]]; then
 fi
 
 if [[ -r "$tagfile.last" ]]; then
-  read last < "$tagfile.last"
+  read -r last < "$tagfile.last"
 else
   last="$empty_tree"
 fi
@@ -55,14 +55,14 @@ tmpfile=$(mktemp "git-update-tags.XXXXXXXX")
 # Function declarations
 #######################
 
-function gather_files()
+gather_files()
 {
   local files=()
 
   while read -r dstatus filename; do
     case $dstatus in
       A|M|T|X|D|R*) 
-        files+=($filename)
+        files+=("$filename")
         ;;
       *) 
         ;;
@@ -72,25 +72,25 @@ function gather_files()
   echo "${files[*]}"
 }
 
-function handle_diff()
+handle_diff()
 {
   local files=()
 
   # First gather files between last and HEAD revision
-  files+=($(gather_files "$last..$rev"))
+  IFS=" " read -r -a files <<< "${files[*]} $(gather_files "$last..$rev")"
 
   # Then add staged files
-  files+=($(gather_files "--cached"))
+  IFS=" " read -r -a files <<< "${files[*]} $(gather_files "--cached")"
 
   if [[ ${#files[@]} -gt 0 ]]; then
     ctags_update -o "$tmpfile" "${files[*]}"
   fi
 }
 
-function initial_tags()
+initial_tags()
 {
   git ls-files | ctags -L - -o "$tmpfile" && mv "$tmpfile" "$tagfile"
-  echo $rev > "$tagfile.last"
+  echo "$rev" > "$tagfile.last"
   exit 0
 }
 
@@ -98,6 +98,10 @@ function initial_tags()
 # Main
 #######################
 
-[ -f "$tagfile" ] && cp "$tagfile" "$tmpfile" || initial_tags
+if [[ -f "$tagfile" ]]; then
+  cp "$tagfile" "$tmpfile"
+else
+  initial_tags
+fi
 handle_diff && mv -v "$tmpfile" "$tagfile"
-echo $rev > "$tagfile.last"
+echo "$rev" > "$tagfile.last"

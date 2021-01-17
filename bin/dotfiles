@@ -49,7 +49,7 @@ DOTVARS=("user" "host")
 # Substitute variables in files.  The first parameter is the source and an
 # optional second parameter is where to redirect the output (defaults to
 # /dev/stdout)
-function dot_substitute() {
+dot_substitute() {
   local src dest cmd subst priv
   if [[ "$1" == "sudo" ]]; then priv=1; shift; fi
 
@@ -84,14 +84,14 @@ function dot_substitute() {
 export -f dot_substitute
 
 # Simple function to join strings with a multi-character separator
-function join_strings() { sep="$1"; shift; str="$(printf "${sep}%s" "${@}")"; echo "${str}"; }
+join_strings() { sep="$1"; shift; str="$(printf "${sep}%s" "${@}")"; echo "${str}"; }
 export -f join_strings
 
 # Logging stuff.
-function e_header()   { echo -e "\n\033[1m$*\033[0m"; }
-function e_success()  { echo -e " \033[1;32m✔\033[0m  $*"; }
-function e_error()    { echo -e " \033[1;31m✖\033[0m  $*"; }
-function e_arrow()    { echo -e " \033[1;34m➜\033[0m  $*"; }
+e_header()   { echo -e "\n\033[1m$*\033[0m"; }
+e_success()  { echo -e " \033[1;32m✔\033[0m  $*"; }
+e_error()    { echo -e " \033[1;31m✖\033[0m  $*"; }
+e_arrow()    { echo -e " \033[1;34m➜\033[0m  $*"; }
 
 export -f e_header
 export -f e_success
@@ -99,7 +99,7 @@ export -f e_error
 export -f e_arrow
 
 # For testing.
-function assert() {
+assert() {
   local success modes equals actual expected
   modes=(e_error e_success); equals=("!=" "=="); expected="$1"; shift
   actual="$("$@")"
@@ -109,38 +109,48 @@ function assert() {
 export -f assert
 
 # OS detection
-function is_osx() {
+is_macos() {
   [[ "$OSTYPE" =~ ^darwin ]] || return 1
 }
-function is_redhat() {
-  [[ "$(cat /etc/issue 2> /dev/null)" =~ "Red Hat" ]] || return 1
+get_distro() {
+  awk -F'=' '{$1 != "ID"} {print $2}' /etc/os-release || return 1
 }
-function is_ubuntu() {
-  [[ "$(cat /etc/issue 2> /dev/null)" =~ Ubuntu ]] || return 1
+is_redhat() {
+  [[ "$(get_distro)" =~ "Red Hat" ]] || return 1
 }
-function is_centos() {
-  [[ "$(cat /etc/centos-release 2> /dev/null)" =~ CentOS ]] || return 1
+is_ubuntu() {
+  [[ "$(get_distro)" =~ Ubuntu ]] || return 1
 }
-function get_os() {
-  for os in osx redhat ubuntu centos; do
+is_centos() {
+  [[ "$(get_distro)" =~ CentOS ]] || return 1
+}
+is_linux() {
+  is_ubuntu || is_centos || is_redhat || return 1
+}
+get_os() {
+  for os in macos redhat ubuntu centos; do
     is_$os; [[ $? == "${1:-0}" ]] && echo $os
   done
 }
-export -f is_osx
+export -f is_macos
 export -f is_redhat
 export -f is_centos
 export -f is_ubuntu
 export -f get_os
 
-export SUDO_DISABLED
-function sudo_allowed() {
-  [[ $SUDO_DISABLED -gt 0 ]] || sudo -v 2>/dev/null || return 1
+export SUDO_ENABLED
+sudo_allowed() {
+  if [[ "$SUDO_ENABLED" ]]; then
+    sudo -v 2>/dev/null
+  else
+    return 1
+  fi
 }
 export -f sudo_allowed
 
 # Remove an entry from $PATH
 # Based on http://stackoverflow.com/a/2108540/142339
-function path_remove() {
+path_remove() {
   local arg path
   path=":$PATH:"
   for arg in "$@"; do path="${path//:$arg:/:}"; done
@@ -155,7 +165,7 @@ export -f path_remove
 #
 # trap 'errexit' ERR
 # set -o errtrace
-function errexit() {
+errexit() {
   local err=$?
   set +o xtrace
   local code="${1:-1}"
@@ -186,7 +196,7 @@ export -f errexit
 
 # Display a fancy multi-select menu.
 # Inspired by http://serverfault.com/a/298312
-function prompt_menu() {
+prompt_menu() {
   local exitcode prompt nums
   exitcode=0
   if [[ "$2" ]]; then
@@ -204,7 +214,7 @@ function prompt_menu() {
   _prompt_menu_adds
 }
 
-function _prompt_menu_iter() {
+_prompt_menu_iter() {
   local i sel state
   local fn=$1; shift
   for i in "${!menu_options[@]}"; do
@@ -216,12 +226,12 @@ function _prompt_menu_iter() {
   done
 }
 
-function _prompt_menu_draws() {
+_prompt_menu_draws() {
   e_header "$1"
   _prompt_menu_iter _prompt_menu_draw "$2"
 }
 
-function _prompt_menu_draw() {
+_prompt_menu_draw() {
   local modes=(error success)
   if [[ "$3" ]]; then
     "e_${modes[$1]}" "$(printf "%2d) %s\n" $(($2+1)) "${menu_options[$2]}")"
@@ -230,13 +240,13 @@ function _prompt_menu_draw() {
   fi
 }
 
-function _prompt_menu_adds() {
+_prompt_menu_adds() {
   _prompt_menu_result=()
   _prompt_menu_iter _prompt_menu_add "$@"
   menu_selects=("${_prompt_menu_result[@]}")
 }
 
-function _prompt_menu_add() {
+_prompt_menu_add() {
   local state i n keep match
   state=$1; shift
   i=$1; shift
@@ -251,7 +261,7 @@ function _prompt_menu_add() {
 
 # Initialize.
 init_file=$DOTFILES/caches/init/selected
-function init_files() {
+init_files() {
   local i f dirname oses os opt remove
   dirname="$(dirname "$1")"
   f=("$@")
@@ -262,7 +272,7 @@ function init_files() {
     IFS=$'\n' read -d '' -r -a menu_selects < "$init_file"
   else
     # Otherwise default to all scripts not specifically for other OSes
-    oses=($(get_os 1))
+    IFS=" " read -r -a oses <<< "$(get_os 1)"
     for opt in "${menu_options[@]}"; do
       remove=
       for os in "${oses[@]}"; do
@@ -279,40 +289,40 @@ function init_files() {
     echo "$dirname/${menu_selects[i]}"
   done
 }
-function init_do() {
+init_do() {
   e_header "Executing $(basename "$2")"
   $2
 }
 
 # Copy files.
-function copy_header() { e_header "Copying files into home directory"; }
-function copy_test() {
+copy_header() { e_header "Copying files into home directory"; }
+copy_test() {
   if [[ -e "$2" && ! "$(cmp "$1" "$2" 2> /dev/null)" ]]; then
     echo "same file"
   elif [[ "$1" -ot "$2" ]]; then
     echo "destination file newer"
   fi
 }
-function copy_do() {
+copy_do() {
   e_success "Copying ~/$1."
   cp "$2" ~/
 }
 
 # Link files.
-function link_header() { e_header "Linking files into home directory"; }
-function link_test() {
+link_header() { e_header "Linking files into home directory"; }
+link_test() {
   [[ "$1" -ef "$2" ]] && echo "same file"
 }
-function link_do() {
+link_do() {
   e_success "Linking ~/$1."
   ln -sf "${2#$HOME/}" ~/
 }
 
 # Copy, link, init, etc.
-function do_stuff() {
+do_stuff() {
   local base dest skip
-  local files=($DOTFILES/$1/*)
-  [[ $(declare -f "$1_files") ]] && files=($("$1_files" "${files[@]}"))
+  local files=("$DOTFILES"/"$1"/*)
+  [[ $(declare -f "$1_files") ]] && IFS=" " read -r -a files <<< "$1_files ${files[*]}"
   # No files? abort.
   if (( ${#files[@]} == 0 )); then return; fi
   # Run _header function only if declared.
@@ -348,7 +358,7 @@ function do_stuff() {
 # Enough with the functions, let's do stuff.
 
 if [[ "$(get_os)" == "" ]]; then
-  e_error "Unknown OS, dotfiles currently only supports OSX, Red Hat, CentOS, and Ubuntu"
+  e_error "Unknown OS, dotfiles currently only supports macOS, Red Hat, CentOS, and Ubuntu"
   exit 1
 fi
 
@@ -359,16 +369,14 @@ sudo_allowed
 while sudo_allowed; do sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 
 # Ensure that we can actually, like, compile anything.
-if is_osx && ([[ ! "$(type -P gcc)" ]] || ! xcrun --version &>/dev/null); then
+if is_macos && ([[ ! "$(type -P gcc)" ]] || ! xcrun --version &>/dev/null); then
   # Get and install Xcode CLI tools
   e_header "Installing XCode Command Line Tools"
 
   # See https://raw.githubusercontent.com/timsutton/osx-vm-templates/master/LICENSE.md
   export INSTALL_XCODE_CLI_TOOLS=true
-  bash -c "$(curl -fsSL https://raw.githubusercontent.com/rtrouton/rtrouton_scripts/master/rtrouton_scripts/install_xcode_command_line_tools/install_xcode_command_line_tools.sh)"
-
-  # If an auto install didn't work then bail
-  if [[ $? != 0 ]]; then
+  if bash -c "$(curl -fsSL https://raw.githubusercontent.com/rtrouton/rtrouton_scripts/master/rtrouton_scripts/install_xcode_command_line_tools/install_xcode_command_line_tools.sh)"; then
+    # If an auto install didn't work then bail
     e_error "Unable to automatically install the XCode Command Line Tools. Try installing them using 'xcode-select --install"
     exit 1
   fi
