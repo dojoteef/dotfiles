@@ -264,7 +264,7 @@ init_file=$DOTFILES/caches/init/selected
 init_files() {
   local i f dirname oses os opt remove
   dirname="$(dirname "$1")"
-  f=("$@")
+  read -r -a f <<< "$@"
   menu_options=(); menu_selects=()
   for i in "${!f[@]}"; do menu_options[i]="$(basename "${f[i]}")"; done
   if [[ -e "$init_file" ]]; then
@@ -322,7 +322,7 @@ link_do() {
 do_stuff() {
   local base dest skip
   local files=("$DOTFILES"/"$1"/*)
-  [[ $(declare -f "$1_files") ]] && mapfile -t -O ${#files[@]} files <<< "$1_files"
+  [[ $(declare -f "$1_files") ]] && mapfile -t files <<< "$("$1_files" "${files[*]}")"
   # No files? abort.
   if (( ${#files[@]} == 0 )); then return; fi
   # Run _header function only if declared.
