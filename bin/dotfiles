@@ -207,7 +207,7 @@ prompt_menu() {
   fi 1>&2
   if [[ "$exitcode" == 0 ]]; then
     prompt="Toggle options (Separate options with spaces, ENTER when done): "
-    while _prompt_menu_draws "$1" 1 && read -rp "$prompt" -a nums && [[ "$nums" ]]; do
+    while _prompt_menu_draws "$1" 1 && read -rp "$prompt" -a nums && [[ "${nums[*]}" ]]; do
       _prompt_menu_adds "${nums[@]}"
     done
   fi 1>&2
@@ -243,7 +243,7 @@ _prompt_menu_draw() {
 _prompt_menu_adds() {
   _prompt_menu_result=()
   _prompt_menu_iter _prompt_menu_add "$@"
-  IFS=" " read -r -a menu_selects <<< "${_prompt_menu_result[*]}"
+  menu_selects=("${_prompt_menu_result[@]}")
 }
 
 _prompt_menu_add() {
@@ -256,15 +256,15 @@ _prompt_menu_add() {
     fi
   done
   [[ ! "$match" && "$state" == 1 || "$keep" ]] || return
-  IFS=" " read -r -a _prompt_menu_result <<< "${_prompt_menu_result[*]} ${menu_options[i]}"
+  _prompt_menu_result=("${_prompt_menu_result[@]}" "${menu_options[i]}")
 }
 
 # Initialize.
 init_file=$DOTFILES/caches/init/selected
 init_files() {
   local i f dirname oses os opt remove
-  dirname="$(dirname "$1")"
   read -r -a f <<< "$@"
+  dirname="$(dirname "${f[0]}")"
   menu_options=(); menu_selects=()
   for i in "${!f[@]}"; do menu_options[i]="$(basename "${f[i]}")"; done
   if [[ -e "$init_file" ]]; then
