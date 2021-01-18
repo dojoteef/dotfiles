@@ -53,7 +53,7 @@ inputfiles=("$@")
 
 function pattern_string { local d=$1; shift; printf "%s " "${@/#/$d}"; }
 removes=$(pattern_string "-e " "${inputfiles[@]}")
-read -r -a updates <<< "$(for f in "${inputfiles[@]}"; do [[ -f $f ]] && echo "$f"; done)"
+mapfile -t updates <<< "$(for f in "${inputfiles[@]}"; do [[ -f $f ]] && echo "$f"; done)"
 
 tmp=$(mktemp "update-$(basename "$tagfile").XXXXXXXX")
 (

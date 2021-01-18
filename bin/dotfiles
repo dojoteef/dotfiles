@@ -272,7 +272,7 @@ init_files() {
     IFS=$'\n' read -d '' -r -a menu_selects < "$init_file"
   else
     # Otherwise default to all scripts not specifically for other OSes
-    IFS=" " read -r -a oses <<< "$(get_os 1)"
+    mapfile -t oses <<< "$(get_os 1)"
     for opt in "${menu_options[@]}"; do
       remove=
       for os in "${oses[@]}"; do
@@ -322,7 +322,7 @@ link_do() {
 do_stuff() {
   local base dest skip
   local files=("$DOTFILES"/"$1"/*)
-  [[ $(declare -f "$1_files") ]] && IFS=" " read -r -a files <<< "$1_files ${files[*]}"
+  [[ $(declare -f "$1_files") ]] && mapfile -t -O ${#files[@]} files <<< "$1_files"
   # No files? abort.
   if (( ${#files[@]} == 0 )); then return; fi
   # Run _header function only if declared.
