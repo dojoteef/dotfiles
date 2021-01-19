@@ -137,6 +137,7 @@ export -f is_redhat
 export -f is_centos
 export -f is_ubuntu
 export -f is_linux
+export -f get_distro
 export -f get_os
 
 export SUDO_ENABLED
