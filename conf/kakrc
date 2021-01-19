@@ -1,6 +1,49 @@
+# Set the colorscheme
 colorscheme zenburn
+
+# Width of a tab
+set-option global tabstop 4
+
+# Indent with 4 spaces
+set-option global indentwidth 4
+
+# Display line numbers
+add-highlighter global/ number-lines -hlcursor
+
+# Highlight trailing whitespace
+add-highlighter global/ regex \h+$ 0:Error
+
+# Softwrap long line
+add-highlighter global/ wrap -word -indent
+
+# Command to enable an IDE-like setup
+define-command ide -params 0..1 -docstring 'ide [session-name]: Turn current session into an IDE' %{
+    # Try naming the session
+    try %{
+        rename-session %arg{1}
+    }
+
+    # Main client
+    rename-client main
+    set-option global jumpclient main
+
+    # Tools client
+    new %{
+        rename-client tools
+        set-option global toolsclient tools
+    }
+
+    # Docs client
+    new %{
+        rename-client docs
+        set-option global docsclient docs
+    }
+}
+
+# Enable the kakoune language server
 eval %sh{kak-lsp --kakoune -s $kak_session}
 
+# Configure language server for supported languages
 hook global WinSetOption filetype=(python) %{
     lsp-enable-window
     lsp-auto-hover-enable
@@ -9,5 +52,44 @@ hook global WinSetOption filetype=(python) %{
     hook window BufWritePre .* lsp-formatting-sync
 }
 
+# Automatically highlight references
 set-option global lsp_auto_highlight_references true
+
+# Use the python-language-server with mypy by default
 set-option global lsp_server_configuration pyls.plugins.pyls_mypy.enabled=true
+
+# Override hover to use the docsclient
+declare-option -docstring "Where to display hover: (docsclient, anchor, default)" str lsp_hover_location "docsclient"
+set-option global lsp_hover_location "docsclient"
+define-command -hidden lsp-docs-display -params 2 -docstring "Render text in docsclient" %{
+    evaluate-commands -save-regs '"' -try-client %opt{docsclient} %{
+        edit! -scratch %arg{1}
+        set-register '"' %arg{2}
+        execute-keys Pgg
+    }
+}
+
+define-command -hidden -override lsp-show-hover -params 3 -docstring %{
+    lsp-show-hover <anchor> <info> <diagnostics>
+    Render hover info.
+} %{ evaluate-commands %sh{
+    lsp_info=$2
+    lsp_diagnostics=$3
+    content=$(eval "${kak_opt_lsp_show_hover_format}")
+    # remove leading whitespace characters
+    content="${content#"${content%%[![:space:]]*}"}"
+    # remove trailing whitespace characters
+    content="${content%"${content##*[![:space:]]}"}"
+
+    if [ $kak_opt_lsp_hover_max_lines -gt 0 ]; then
+        content=$(printf %s "$content" | head -n $kak_opt_lsp_hover_max_lines)
+    fi
+
+    content=$(printf %s "$content" | sed s/\'/\'\'/g)
+
+    case $kak_opt_lsp_hover_location in
+        docsclient) printf "lsp-docs-display *hover* '%s'" "$content";;
+        anchor)     printf "info -anchor %%arg{1} '%s'" "$content";;
+        *)          printf "info '%s'" "$content";;
+    esac
+}}
