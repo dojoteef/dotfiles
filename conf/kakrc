@@ -6,7 +6,6 @@ colorscheme zenburn
 
 # Width of a tab
 set-option global tabstop 4
-declare-option int tabstopm1 3
 
 # Indent with 4 spaces
 set-option global indentwidth 4
@@ -23,6 +22,7 @@ hook global ModeChange 'pop:insert:.+' %{ try %{ execute-keys -draft <semicolon>
 # use silver searcher
 set-option global grepcmd 'ag --column'
 
+
 # Useful key mappings
 # ───────────────────
 map global normal '#' :comment-line<ret>
@@ -33,6 +33,123 @@ map global user -docstring 'lsp mode' l ':enter-user-mode lsp<ret>'
 # ──────────────────────────────────────────────────────
 hook global InsertCompletionShow .* %{ map window insert <tab> <c-n>; map window insert <s-tab> <c-p> }
 hook global InsertCompletionHide .* %{ unmap window insert <tab> <c-n>; unmap window insert <s-tab> <c-p> }
+
+# Surround blocks of text with various types of punctuation
+# ─────────────────────────────────────────────────────────
+declare-user-mode surround
+map global user -docstring 'surround mode' s ':enter-user-mode surround<ret>'
+map global surround ( 'a)<esc>i(<esc>H<a-;>' -docstring '(surround)'
+map global surround { 'a}<esc>i{<esc>H<a-;>' -docstring '{surround}'
+map global surround < 'a<gt><esc>i<lt><esc>H<a-;>' -docstring '<surround>'
+map global surround [ 'a]<esc>i[<esc>H<a-;>' -docstring '[surround]'
+map global surround ) 'a )<esc>i( <esc>2H<a-;>' -docstring '( surround )'
+map global surround } 'a }<esc>i{ <esc>2H<a-;>' -docstring '{ surround }'
+map global surround > 'a <gt><esc>i<lt> <esc>2H<a-;>' -docstring '< surround >'
+map global surround ] 'a ]<esc>i[ <esc>2H<a-;>' -docstring '[ surround ]'
+map global surround '`' 'a`<esc>i`<esc>H<a-;>' -docstring '`surround`'
+map global surround '"' 'a"<esc>i"<esc>H<a-;>' -docstring '"surround"'
+map global surround "'" "a'<esc>i'<esc>H<a-;>" -docstring "'surround'"
+map global surround d "Z<a-S><a-d>z<a-:>H" -docstring 'delete'
+map global surround c ":enter-user-mode surround<ret>d:enter-user-mode surround<ret>" -docstring 'change'
+
+
+# Phantom selections (toggle through selections)
+# ─────────────────────────────────────────────────────────
+set-face global PhantomSelection SecondarySelection
+
+declare-option -hidden str-list phantom_selections
+declare-option -hidden range-specs phantom_selections_ranges
+
+add-highlighter global/ ranges phantom_selections_ranges
+
+define-command -hidden phantom-selection-store-and-highlight %{
+    set-option window phantom_selections %reg{^}
+    set-option window phantom_selections_ranges %val{timestamp}
+    evaluate-commands -no-hooks -draft -itersel %{
+        set-option -add window phantom_selections_ranges "%val{selection_desc}|PhantomSelection"
+    }
+}
+
+define-command -hidden phantom-selection-iterate-impl -params 1 %{
+    evaluate-commands -save-regs ^ %{
+        set-register ^ %opt{phantom_selections}
+
+        try %{ execute-keys <a-z>a }
+        execute-keys %arg{1}
+        # keep the main selection and put all the other in the mark
+        try %{
+            evaluate-commands -draft %{
+                execute-keys -save-regs '' '<a-space>Z'
+                phantom-selection-store-and-highlight
+            }
+            execute-keys <space>
+        }
+    }
+}
+
+define-command phantom-selection-iterate-next -docstring "Turn secondary selections into phantoms and select the next phantom" %{
+    phantom-selection-iterate-impl ')'
+}
+
+define-command phantom-selection-iterate-prev -docstring "Turn secondary selections into phantoms and select the previous phantom" %{
+    phantom-selection-iterate-impl '('
+}
+
+define-command phantom-selection-clear -docstring "Remove all phantom selections" %{
+    unset-option window phantom_selections
+    unset-option window phantom_selections_ranges
+}
+
+define-command phantom-selection-select-all -docstring "Select all phantom selections" %{
+    evaluate-commands -save-regs ^ %{
+        set-register ^ %opt{phantom_selections}
+        try %{
+            execute-keys <a-z>a
+            echo ""
+        }
+    }
+}
+
+define-command phantom-selection-add-selection -docstring "Create phantoms out of the current selections" %{
+    evaluate-commands -draft -save-regs ^ %{
+        set-register ^ %opt{phantom_selections}
+        try %{ execute-keys "<a-z>a" }
+        execute-keys -save-regs '' "Z"
+        phantom-selection-store-and-highlight
+    }
+}
+
+define-command -hidden -override -docstring "Creates a phantom group of selections" \
+    phantom-group %{
+        phantom-selection-add-selection
+        set-option buffer modelinefmt "{PrimarySelection}phantom{StatusModeInfo} %opt{modelinefmt}"
+        map buffer normal <tab>       ':phantom-selection-iterate-next<ret>'
+        map buffer insert <tab>       '<esc>:phantom-selection-iterate-next<ret>i'
+        map buffer normal <s-tab>     ':phantom-selection-iterate-prev<ret>'
+        map buffer insert <s-tab>     '<esc>:phantom-selection-iterate-prev<ret>i'
+        map buffer normal <c-g>       ':phantom-ungroup<ret>'
+        map buffer insert <c-g>       '<esc>:phantom-ungroup<ret>i'
+        map buffer normal <a-space>   ':phantom-ungroup<ret><a-space>:phantom-group<ret><space>'
+        map buffer insert <a-space>   '<esc>:phantom-ungroup<ret><a-space>:phantom-group<ret><space>i'
+    }
+define-command -hidden -override -docstring "Removes a phantom group of selections" \
+    phantom-ungroup %{
+        phantom-selection-select-all
+        phantom-selection-clear
+        unmap buffer normal <tab>      ':phantom-selection-iterate-next<ret>'
+        map   buffer insert <tab>      '<tab>'
+        unmap buffer normal <s-tab>    ':phantom-selection-iterate-prev<ret>'
+        unmap buffer insert <s-tab>    '<esc>:phantom-selection-iterate-prev<ret>i'
+        unmap buffer normal <c-g>      ':phantom-ungroup<ret>'
+        unmap buffer insert <c-g>      '<esc>:phantom-ungroup<ret>i'
+        unmap buffer normal <a-space>  ':phantom-ungroup<ret><a-space>:phantom-group<ret><space>'
+        unmap buffer insert <a-space>  '<esc>:phantom-ungroup<ret><a-space>:phantom-group<ret><space>i'
+        evaluate-commands %sh{printf "set-option buffer modelinefmt '%s'\n" "$(printf "%s" "${kak_opt_modelinefmt}" | sed "s/{PrimarySelection}phantom{StatusModeInfo} //")"}
+    }
+
+map global normal <c-g>  ':phantom-group<ret><space>'
+map global insert <c-g>  '<a-;>:phantom-group<ret><a-;><space>'
+
 
 # Highlighters
 # ────────────
