@@ -20,5 +20,11 @@ if [[ "$(type -P nvr)" ]] && [[ "$(type -P latexmk)" ]]; then
   alias vimtex='nvr'
 fi
 
-export EDITOR='vim'
+# If kakoune is installed use it by default
+if [[ "$(type -P kak)" ]]; then
+    export EDITOR='kak'
+    alias kak-ide='kak -e ide'
+else
+    export EDITOR='vim'
+fi
 export VISUAL="$EDITOR"

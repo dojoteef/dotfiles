@@ -22,6 +22,9 @@ hook global ModeChange 'pop:insert:.+' %{ try %{ execute-keys -draft <semicolon>
 # use silver searcher
 set-option global grepcmd 'ag --column'
 
+# define xml tag object
+map global object -docstring 'xml tag object' t %{c<lt>([\w.]+)\b[^>]*?(?<lt>!/)>,<lt>/([\w.]+)\b[^>]*?(?<lt>!/)><ret>}
+
 
 # Useful key mappings
 # ───────────────────
@@ -241,6 +244,17 @@ define-command ide -params 0..1 -docstring 'ide [session-name]: Turn current ses
     # Docs client
     new rename-client docs
     set-option global docsclient docs
+
+    # If running in tmux then arrange the windows nicely
+    evaluate-commands %sh{
+        if [ -n "$TMUX" ]; then
+            tmux set-window-option other-pane-height 15
+            tmux select-layout main-horizontal
+        fi
+    }
+
+    # Make sure the main client is focused
+    focus main
 }
 
 # Support running arbitrary commands asynchronously in a fifo buffer
