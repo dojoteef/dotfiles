@@ -14,12 +14,12 @@ brew doctor
 brew update
 brew upgrade
 
-if brew bundle "--file=$DOTFILES/conf/brew/core" check &> /dev/null; then
+if ! brew bundle "--file=$DOTFILES/conf/brew/core" check &> /dev/null; then
   e_header "Installing core requirements"
   brew bundle "--file=$DOTFILES/conf/brew/core"
 fi
 
-if brew bundle "--file=$DOTFILES/conf/brew/devel" check &> /dev/null; then
+if ! brew bundle "--file=$DOTFILES/conf/brew/devel" check &> /dev/null; then
   if [[ $DOTDEFAULTS ]]; then
     install_devel="Y"
   else
@@ -27,6 +27,7 @@ if brew bundle "--file=$DOTFILES/conf/brew/devel" check &> /dev/null; then
   fi
 
   if [[ ! "$install_devel" =~ [Nn] ]]; then
+    e_header "Installing development tools"
     brew bundle "--file=$DOTFILES/conf/brew/devel"
   fi
 fi
@@ -40,12 +41,13 @@ if is_macos && brew bundle "--file=$DOTFILES/conf/macos/brew/casks" check &> /de
   fi
 
   if [[ ! "$install_casks" =~ [Nn] ]]; then
+    e_header "Installing casks"
     brew bundle "--file=$DOTFILES/conf/macos/brew/casks"
   fi
 fi
 
 
-if brew bundle "--file=$DOTFILES/conf/macos/brew/completions" check &> /dev/null; then
+if ! brew bundle "--file=$DOTFILES/conf/macos/brew/completions" check &> /dev/null; then
   if [[ $DOTDEFAULTS ]]; then
     install_completions="Y"
   else
@@ -53,6 +55,7 @@ if brew bundle "--file=$DOTFILES/conf/macos/brew/completions" check &> /dev/null
   fi
 
   if [[ ! "$install_completions" =~ [Nn] ]]; then
+    e_header "Installing completions"
     brew bundle "--file=$DOTFILES/conf/brew/completions"
   fi
 fi

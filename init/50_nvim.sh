@@ -22,7 +22,7 @@ if sudo_allowed; then
   # Exit if Homebrew is not installed.
   [[ ! "$(type -P brew)" ]] && e_error "Brew recipes need Homebrew to install." && return 1
 
-  if brew bundle "--file=$DOTFILES/conf/brew/neovim" check &> /dev/null; then
+  if ! brew bundle "--file=$DOTFILES/conf/brew/neovim" check &> /dev/null; then
     brew bundle "--file=$DOTFILES/conf/brew/neovim"
   fi
 fi
