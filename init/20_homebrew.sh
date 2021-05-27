@@ -33,7 +33,7 @@ if ! brew bundle "--file=$DOTFILES/conf/brew/devel" check &> /dev/null; then
 fi
 
 
-if is_macos && brew bundle "--file=$DOTFILES/conf/macos/brew/casks" check &> /dev/null; then
+if is_macos && ! brew bundle "--file=$DOTFILES/conf/macos/brew/casks" check &> /dev/null; then
   if [[ $DOTDEFAULTS ]]; then
     install_casks="Y"
   else

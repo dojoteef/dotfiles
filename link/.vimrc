@@ -21,10 +21,6 @@ if has('unix')
   let g:ubuntu = s:uname =~? 'ubuntu'
 endif
 
-" Must be before loading the plugin
-" See https://github.com/sheerun/vim-polyglot/issues/546
-let g:polyglot_disabled = []
-
 " Where plugins get installed
 let s:plugin_directory = '~/.vim/plugged'
 
@@ -63,10 +59,6 @@ Plug 'ynkdir/vim-vimlparser', { 'for': 'vim' }
 Plug 'junegunn/vader.vim', { 'on': 'Vader', 'for': 'vader' }
 Plug 'romainl/vim-qf'
 
-if has('nvim-0.4.0') || v:version >= 800
-  Plug 'neoclide/coc.nvim', {'branch': 'release'}
-endif
-
 " Tags
 if executable('ctags')
   Plug 'ludovicchabant/vim-gutentags' ", { 'branch': 'buffer-tagfiles' }
@@ -80,7 +72,7 @@ Plug 'puremourning/vimspector', {'do': './install_gadget.py --enable-c --enable-
 if executable('go')
   Plug 'fatih/vim-go', { 'for': 'go' }
 endif
-Plug 'SirVer/ultisnips' | Plug 'honza/vim-snippets'
+"Plug 'SirVer/ultisnips' | Plug 'honza/vim-snippets'
 
 " Search & Navigation
 Plug 't9md/vim-choosewin'
@@ -96,7 +88,6 @@ Plug 'scrooloose/nerdtree', { 'on': ['NERDTree', 'NERDTreeToggle', 'NERDTreeFind
       \ | Plug 'Xuyuanp/nerdtree-git-plugin', { 'on': ['NERDTree', 'NERDTreeToggle', 'NERDTreeFind'] }
 
 if executable('latexmk') || executable('latexrun')
-  let g:polyglot_disabled += ['latex']
   Plug 'lervag/vimtex'
 endif
 
@@ -116,11 +107,6 @@ Plug 'tpope/vim-commentary'
 Plug 'tpope/vim-dispatch'
 Plug 'rickhowe/diffchar.vim'
 Plug 'google/vim-jsonnet'
-
-" Polyglot is next to last, such that we can ensure we disable certain
-" filetypes if needed, see
-" https://github.com/sheerun/vim-polyglot/issues/546
-Plug 'sheerun/vim-polyglot'
 
 " Dev icons (must be last)
 " https://github.com/ryanoasis/vim-devicons#step-3-configure-vim
@@ -1403,15 +1389,6 @@ if s:PlugActive('indentLine')
 endif
 
 "//////////////"
-" vim-polyglot {{{2
-"//////////////"
-if s:PlugActive('vim-polyglot')
-  " Make syntax highlighting correct, but potentially slower
-  let g:python_slow_sync = 1
-  let g:python_highlight_all = 1
-endif
-
-"//////////////"
 " vim-devicons {{{2
 "//////////////"
 if s:PlugActive('vim-devicons')
@@ -1466,162 +1443,6 @@ if s:PlugActive('vim-choosewin')
         \ }
 
   nmap <leader>w <Plug>(choosewin)
-endif
-
-"/////////"
-" coc.nvim  {{{2
-"/////////"
-if s:PlugActive('coc.nvim')
-  let g:coc_global_extensions = [
-        \ 'coc-json',
-        \ 'coc-yaml',
-        \ 'coc-clangd',
-        \ 'coc-python',
-        \ 'coc-highlight'
-        \ ]
-
-  if s:PlugActive('vimtex')
-    let g:coc_global_extensions += ['coc-vimtex']
-  endif
-
-  if s:PlugActive('vim-airline')
-    function! s:AirlineCocFunction(...)
-    endfunction
-
-    call airline#parts#define('coc', {
-          \ 'function': s:script_function('s:AirlineCocFunction'),
-          \ })
-
-    " Custom sections for better truncation
-    function! s:AirlineCoc(builder, context, ...)
-      let l:section = []
-      call add(l:section, get(w:, 'airline_section_c', g:airline_section_c))
-
-      let l:winwidth = winwidth(a:context.winnr)
-      let l:pathlen = strlen(s:AirlinePath(l:winwidth, a:context.bufnr))
-      if l:winwidth - l:pathlen > 120
-        call add(l:section, ' %{coc#status()}')
-      endif
-
-      let w:airline_section_c = airline#section#create(l:section)
-    endfunction
-
-    call airline#add_statusline_func(s:script_function('s:AirlineCoc'))
-    
-    " Only needed if I replace neomake with coc.nvim as it wants to display
-    " the number of errors and warnings, which neomake currently does.
-    " let g:airline_extensions += ['coc']
-  endif
-
-  function! s:check_back_space() abort
-    let col = col('.') - 1
-    return !col || getline('.')[col - 1]  =~# '\s'
-  endfunction
-
-  " Use <tab> to trigger completion or advance to next suggestion
-  inoremap <silent><expr> <Tab>
-        \ pumvisible() ? "\<C-n>" :
-        \ <SID>check_back_space() ? "\<Tab>" :
-        \ coc#refresh()
-
-  " Use <c-space> to always trigger completion.
-  inoremap <silent><expr> <c-space> coc#refresh()
-
-  " use <tab> for trigger completion and navigate to the next complete item
-  inoremap <silent><expr> <Tab> pumvisible() ? "\<C-n>" : "\<Tab>"
-
-  " use <shift-tab> and navigate to the next complete item
-  inoremap <silent><expr> <S-Tab> pumvisible() ? "\<C-p>" : "\<S-Tab>"
-
-  " Make <cr> select the first completion item and confirm the completion
-  " when no item has been selected in addition to formatting code on <cr>:
-  inoremap <silent><expr> <cr> pumvisible() ? coc#_select_confirm() : "\<CR>\<c-r>=coc#on_enter()\<CR>"
-
-  " Automatically close completion window when completion is done
-  autocmd vimrc CompleteDone * if pumvisible() == 0 | pclose | endif
-
-  " Remap keys for gotos
-  nmap <silent> gr <Plug>(coc-references)
-
-  " Use K to show documentation in preview window
-  nnoremap <silent> K :call <SID>show_documentation()<CR>
-
-  function! s:show_documentation()
-    if (index(['vim','help'], &filetype) >= 0)
-      execute 'h '.expand('<cword>')
-    else
-      call CocActionAsync('doHover')
-    endif
-  endfunction
-
-  " Highlight symbol under cursor on CursorHold
-  autocmd vimrc CursorHold * silent call CocActionAsync('highlight')
-
-  " Need to change updatetime for CursorHold, but also effects writting the
-  " swapfile to disk. The default of 4000ms is too long to wait for
-  " highlights, but hopefully 300ms is not to onerous for writting the swap
-  " file.
-  set updatetime=300
-
-  " Remap for rename current word
-  nmap <leader>rn <Plug>(coc-rename)
-
-  " Remap for format selected region
-  xmap <leader>f  <Plug>(coc-format-selected)
-  nmap <leader>f  <Plug>(coc-format-selected)
-
-  " Setup formatexpr specified filetype(s).
-  autocmd vimrc FileType typescript,json,jsonnet setl formatexpr=CocAction('formatSelected')
-
-  " Update signature help on jump placeholder
-  autocmd vimrc User CocJumpPlaceholder call CocActionAsync('showSignatureHelp')
-
-  " Remap for do codeAction of selected region, ex: `<leader>aap` for current paragraph
-  xmap <leader>a  <Plug>(coc-codeaction-selected)
-  nmap <leader>a  <Plug>(coc-codeaction-selected)
-
-  " Remap for do codeAction of current line
-  nmap <leader>ac  <Plug>(coc-codeaction)
-  " Fix autofix problem of current line
-  nmap <leader>qf  <Plug>(coc-fix-current)
-
-  " Create mappings for function text object, requires document symbols feature of languageserver.
-  xmap if <Plug>(coc-funcobj-i)
-  xmap af <Plug>(coc-funcobj-a)
-  omap if <Plug>(coc-funcobj-i)
-  omap af <Plug>(coc-funcobj-a)
-
-  " TODO: <C-d> inteferes with movement commands
-  " Use <C-d> for select selections ranges, needs server support, like: coc-tsserver, coc-python
-  " nmap <silent> <C-d> <Plug>(coc-range-select)
-  " xmap <silent> <C-d> <Plug>(coc-range-select)
-
-  " Use `:CocFormat` to format current buffer
-  command! -nargs=0 CocFormat :call CocAction('format')
-
-  " Use `:CocFold` to fold current buffer
-  command! -nargs=? CocFold :call CocAction('fold', <f-args>)
-
-  " use `:CocSortImports` for organize import of current buffer
-  command! -nargs=0 CocSortImports :call CocAction('runCommand', 'editor.action.organizeImport')
-
-  " Using CocList
-  " Show all diagnostics
-  nnoremap <silent> <space>a  :<C-u>CocList diagnostics<cr>
-  " Manage extensions
-  nnoremap <silent> <space>e  :<C-u>CocList extensions<cr>
-  " Show commands
-  nnoremap <silent> <space>c  :<C-u>CocList commands<cr>
-  " Find symbol of current document
-  nnoremap <silent> <space>o  :<C-u>CocList outline<cr>
-  " Search workspace symbols
-  nnoremap <silent> <space>s  :<C-u>CocList -I symbols<cr>
-  " Do default action for next item.
-  nnoremap <silent> <space>j  :<C-u>CocNext<CR>
-  " Do default action for previous item.
-  nnoremap <silent> <space>k  :<C-u>CocPrev<CR>
-  " Resume latest coc list
-  nnoremap <silent> <space>p  :<C-u>CocListResume<CR>
 endif
 
 " vim: set sw=2 sts=2 fdm=marker:
