@@ -116,7 +116,7 @@ get_distro() {
   awk -F'=' '{$1 != "ID"} {print $2}' /etc/os-release 2> /dev/null || return 1
 }
 is_redhat() {
-  [[ "$(get_distro)" =~ "Red Hat" ]] || return 1
+  [[ "$(get_distro)" =~ "Red Hat" ]] || [[ -f /etc/redhat-release ]] || return 1
 }
 is_ubuntu() {
   [[ "$(get_distro)" =~ Ubuntu ]] || return 1
