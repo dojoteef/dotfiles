@@ -10,14 +10,30 @@ set-option global tabstop 4
 # Indent with 4 spaces
 set-option global indentwidth 4
 
-# Next two hook behave similar to combining expandtab and softtabstop in vim.
-# While typing on a line, tabs stay tabs, so backspace behaves like softtabstop.
+# Replicate expandtab from vim.
+declare-option -docstring "Expand <tab> to spaces based on tabstop. To insert a literal <tab> disable hooks for insert mode." bool expandtab true
 
-# converts all tabs to spaces when inserting a new line
-hook global InsertChar '\n' %{ try %{ execute-keys -draft <semicolon>h<a-x>s\t+<ret>@ } } -group softtabstop
+# expandtab converts tabs to spaces when inserting
+hook global InsertChar '\t' %{
+    try %sh{ [ $kak_opt_expandtab = "true" ] && printf "%s\n" 'execute-keys -draft h<ret>@' }
+}
 
-# converts tabs to spaces upon exiting insert mode
-hook global ModeChange 'pop:insert:.+' %{ try %{ execute-keys -draft <semicolon><a-x>s\t+<ret>@ } } -group softtabstop
+# Replicate a light version of softtabstop from vim (use a boolean that respects tabstop).
+declare-option -docstring "Make tabstop number of spaces feel like a <tab> when presssing <backspace>" bool softtabstop true
+
+# delete spaces back to the last softtabstop
+map global insert <backspace> '<a-;>:softtabstop-insert-backspace<ret>'
+def softtabstop-insert-backspace -hidden %{
+    try %sh{
+        if [ $kak_opt_softtabstop = "true" ]; then
+            printf "%s\n" 'execute-keys -draft "<a-?>\h+<ret><a-;>H<a-k>\h\z<ret><a-@>s <ret>d"'
+        else
+            printf "%s\n" 'exec <backspace>'
+        fi
+    } catch %{
+        exec <backspace>
+    }
+}
 
 # use silver searcher
 set-option global grepcmd 'ag --column'
