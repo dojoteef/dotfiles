@@ -25,17 +25,14 @@ map global user -docstring 'lsp mode' l ':enter-user-mode lsp<ret>'
 
 # Use <tab>/<s-tab> for indentation and insert mode completion selection
 # ──────────────────────────────────────────────────────
-def insert-tab-mapping -hidden -params 1 %{
-    %arg{1} window insert <tab> '<a-;><a-gt>'
-    %arg{1} window insert <s-tab> '<a-;><a-lt>'
+define-command insert-tab -hidden -params 1 %{
+    evaluate-commands -draft -save-regs ^ %{
+        echo -debug %arg{1}
+        try %{ execute-keys "Z;%arg{1}z" }
+    }
 }
-def completion-tab-mapping -hidden -params 1 %{
-    %arg{1} window insert <tab> <c-n>
-    %arg{1} window insert <s-tab> <c-p>
-}
-def insert-tab -hidden %{
+define-command insert-tab-fallback -hidden %{
     # Fallback to insert <tab> or <space>s based on indentwidth
-    # when hooks are disabled with '\'
     evaluate-commands %sh{
         if [ $kak_opt_indentwidth -eq 0 ]; then
             echo "execute-keys <tab>"
@@ -44,11 +41,34 @@ def insert-tab -hidden %{
         fi
     }
 }
-map global insert <tab> '<a-;>:insert-tab<ret>'
+define-command insert-tab-mapping -hidden -params 1 %{
+    %arg{1} window insert <tab> "<a-;>:insert-tab <lt>a-gt<gt><ret>"
+    %arg{1} window insert <s-tab> "<a-;>:insert-tab <lt>a-lt<gt><ret>"
+}
+define-command completion-tab-mapping -hidden -params 1 %{
+    %arg{1} window insert <tab> <c-n>
+    %arg{1} window insert <s-tab> <c-p>
+}
+map global insert <tab> '<a-;>:insert-tab-fallback<ret>'
 hook global ModeChange 'push:.+:insert' %{ insert-tab-mapping 'map' }
 hook global ModeChange 'pop:insert:normal' %{ insert-tab-mapping 'unmap' }
 hook global InsertCompletionShow .* %{ completion-tab-mapping 'map' }
 hook global InsertCompletionHide .* %{ completion-tab-mapping 'unmap'; insert-tab-mapping 'map' }
+
+hook global BufOpenFile .* editorconfig-autoload
+define-command editorconfig-autoload -hidden %{
+    evaluate-commands %sh{
+        curpath="${kak_buffile%/*}"
+        while [ -n "$curpath" ]; do
+            if [ -f "$curpath/.editorconfig" ]; then
+                echo "editorconfig-load $curpath/.editorconfig"
+                break
+            fi
+            curpath="${curpath%/*}"
+        done
+    }
+}
+
 
 # Surround blocks of text with various types of punctuation
 # ─────────────────────────────────────────────────────────
@@ -318,7 +338,7 @@ evaluate-commands %sh{
             # Use the python-language-server with mypy by default
             set-option global lsp_server_configuration pyls.plugins.pyls_mypy.enabled=true
 
-                # Allow overriding hover to use the docsclient
+            # Allow overriding hover to use the docsclient
             declare-option -docstring "Where to display hover: (docsclient, anchor, default)" str lsp_hover_location "default"
             define-command -hidden lsp-docs-display -params 2 -docstring "Render text in docsclient" %{
                 evaluate-commands -save-regs '"' -client %opt{docsclient} %{
