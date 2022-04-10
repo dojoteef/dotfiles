@@ -46,47 +46,12 @@ else
         \ | Plug 'vim-airline/vim-airline-themes'
 endif
 
-" VCS
-Plug 'mhinz/vim-signify'
-Plug 'tpope/vim-fugitive'
-Plug 'airblade/vim-rooter'
-
-" Syntax
-Plug 'neomake/neomake'
-Plug 'Yggdroot/indentLine'
-Plug 'ynkdir/vim-vimlparser', { 'for': 'vim' }
-      \ | Plug 'syngan/vim-vimlint', { 'for': 'vim' }
-Plug 'junegunn/vader.vim', { 'on': 'Vader', 'for': 'vader' }
-Plug 'romainl/vim-qf'
-
-" Tags
-if executable('ctags')
-  Plug 'ludovicchabant/vim-gutentags' ", { 'branch': 'buffer-tagfiles' }
-  Plug 'majutsushi/tagbar'
-endif
-
-" Debugging
-Plug 'puremourning/vimspector', {'do': './install_gadget.py --enable-c --enable-python'}
-
-" Completions
-if executable('go')
-  Plug 'fatih/vim-go', { 'for': 'go' }
-endif
-"Plug 'SirVer/ultisnips' | Plug 'honza/vim-snippets'
-
-" Search & Navigation
-Plug 't9md/vim-choosewin'
-Plug 'osyo-manga/vim-over'
-Plug 'haya14busa/incsearch.vim' | Plug 'haya14busa/incsearch-fuzzy.vim'
-Plug 'easymotion/vim-easymotion' | Plug 'haya14busa/incsearch-easymotion.vim'
-
 " File Explorer
 if executable('fzf')
   Plug '~/.fzf' | Plug 'junegunn/fzf.vim'
 endif
-Plug 'scrooloose/nerdtree', { 'on': ['NERDTree', 'NERDTreeToggle', 'NERDTreeFind'] }
-      \ | Plug 'Xuyuanp/nerdtree-git-plugin', { 'on': ['NERDTree', 'NERDTreeToggle', 'NERDTreeFind'] }
 
+" Latex support
 if executable('latexmk') || executable('latexrun')
   Plug 'lervag/vimtex'
 endif
@@ -95,18 +60,11 @@ endif
 Plug 'tmux-plugins/vim-tmux'
 
 " Misc
-Plug 'mbbill/undotree'
-Plug 'junegunn/vim-peekaboo'
-Plug 'junegunn/vim-easy-align'
-Plug 'scrooloose/nerdcommenter'
-Plug 'terryma/vim-multiple-cursors'
+Plug 'google/vim-jsonnet'
+Plug 'rickhowe/diffchar.vim'
 Plug 'tpope/vim-sensible'
 Plug 'tpope/vim-surround'
 Plug 'tpope/vim-repeat'
-Plug 'tpope/vim-commentary'
-Plug 'tpope/vim-dispatch'
-Plug 'rickhowe/diffchar.vim'
-Plug 'google/vim-jsonnet'
 
 " Dev icons (must be last)
 " https://github.com/ryanoasis/vim-devicons#step-3-configure-vim
@@ -149,26 +107,6 @@ set background=dark
 colorscheme desert
 syntax enable
 
-function! s:AddSyntaxComments(keywords)
-  " Only execute if the syntax type is known
-  if empty(&syntax)
-    return
-  endif
-
-  let l:syntaxlist = split(&syntax, '\.')
-  for l:syntax in l:syntaxlist
-    " Syntax group names can only have the letters [a-zA-Z0-9_], so fix any
-    " bad names like 'docker-compose' (see help for group-name):
-    let l:prefix = substitute(l:syntax, '[^A-Za-z0-9_]', '_', 'g')
-    execute printf('syntax keyword %sTodo containedin=%sComment %s',
-          \ l:prefix, l:prefix, join(a:keywords))
-  endfor
-endfunction
-
-" Additional highlighting for comment keywords (for most filetypes only TODO,
-" FIXME, and XXX exist by default)
-autocmd vimrc FileType * call s:AddSyntaxComments(['BUG', 'HACK', 'NOTE', 'INFO'])
-
 " There is a potential for screen flicker, these next two settings
 " should help address any screen flicker issues whether running in tmux or
 " not.
@@ -191,12 +129,6 @@ autocmd vimrc InsertLeave * :set relativenumber
 """"""""""""""""""""""""
 " USER INTERFACE {{{1
 """"""""""""""""""""""""
-" New split goes on top mainly so preview window does not conflict with the
-" completion popup.
-"
-" NOTE: If I can think of a better solution to have it splitbelow normally
-" and preview window gets a split above I might revisit this.
-set nosplitbelow
 set splitright " New split goes to the right
 set hidden " When a buffer is brought to foreground, remember undo history and marks.
 set report=0 " Show all changes.
@@ -205,47 +137,11 @@ if has('mouse_sgr')
   set ttymouse=sgr
 endif
 
-" This is the desired quickfix height
-let s:qfheight = 5
-
-" Since python uses whitespace to denote structures, foldmethod=indent works
-" reasonably well, so use it rather than a plugin. Additionally set a
-" textwidth of 100 (PEP8 allows for lines up to 100 characters if desired).
-" autocmd vimrc FileType python setlocal foldmethod=indent textwidth=100
-
 " Override default in sensible.vim, do not include context above/below cursor
 " when scrolling. Have to implement it this way because sensible.vim will
 " set scrolloff=1 if it is 0, which is the value I want and it cannot be
 " overridden due to the order of sourcing sensible.vim files.
 autocmd vimrc VimEnter * :set scrolloff=0
-
-" Keep the preview window up to date
-autocmd vimrc BufWinEnter * call s:update_previewwinid()
-autocmd vimrc OptionSet previewwindow call s:update_previewwinid()
-
-" Automatically combine location list entries into the quickfix list
-function! s:quickfix_bufwinenter(bufnr)
-  let l:buffer = printf('<buffer=%d>', a:bufnr)
-  let l:events = 'BufHidden,BufUnload,BufWipeout'
-  let l:cmd = printf('call s:quickfix_combine(%d)', a:bufnr)
-  let l:autocmd_target = ['vimrc_qfcombine', l:events, l:buffer]
-  if exists(printf('#%s', join(l:autocmd_target, '#')))
-    " Already setup for this target, so don't add a second one
-    return
-  endif
-
-  call s:quickfix_combine()
-  let l:autocmd = ['autocmd', join(l:autocmd_target), l:cmd]
-  let l:autocmd_disable = ['autocmd!', join(l:autocmd_target)]
-  execute printf('%s | %s', join(l:autocmd), join(l:autocmd_disable))
-endfunction
-
-augroup vimrc_qfcombine
-  autocmd BufWinEnter * call s:quickfix_bufwinenter(expand('<abuf>'))
-augroup END
-
-" Ensure the quickfix window stays the correct height
-autocmd vimrc FileType qf if !empty(getqflist()) | execute 'resize '.s:qfheight | endif
 
 """"""""""""""""""""""""
 " FORMATTING {{{1
@@ -260,9 +156,6 @@ set hlsearch " Highlight searches
 " Set wrapping by default in tex files
 autocmd vimrc FileType tex set wrap
 
-" Use 4 spaces for indenting in java
-autocmd vimrc FileType java set ts=4 sts=4 sw=4
-
 " Use json indenting for jsonnet; it's close enough, and there doesn't seem to
 " be a dedicated indenter for jsonnet.
 autocmd vimrc FileType jsonnet set indentexpr=GetJSONIndent()
@@ -274,180 +167,8 @@ autocmd vimrc FileType jsonnet set indentexpr=GetJSONIndent()
 let g:mapleader=','
 let g:maplocalleader='\'
 
-" Move more naturally when wrapping is enabled.
-" noremap <silent> j gj
-" noremap <silent> k gk
-" noremap <silent> 0 g0
-" noremap <silent> $ g$
-
-" For operator pending mode
-" onoremap <silent> j gj
-" onoremap <silent> k gk
-" onoremap <silent> 0 g0
-" onoremap <silent> $ g$
-
-" Ctrl-J/K/L/H select split
-nnoremap <C-J> <C-W>j
-nnoremap <C-K> <C-W>k
-nnoremap <C-L> <C-W>l
-nnoremap <C-H> <C-W>h
-
 " Toggle paste
 noremap <silent> <leader>pp :set invpaste paste?<CR>
-
-" Allow saving of files as sudo when I forgot to start vim using sudo.
-cnoremap w!! w !sudo tee > /dev/null %
-
-""""""""""""""""""""""""
-" FOLDS {{{1
-""""""""""""""""""""""""
-" FUNCTION: s:foldpos() {{{2
-" Figure out the top or bottom of the fold, unfortunately this is not a built
-" in function. Using the builtin functions, the top and bottom of folds can
-" only be determined when they are closed...
-function! s:foldpos(line, pos, ...)
-  if a:pos ==# 'top'
-    let l:Function = function('foldclosed')
-  elseif a:pos ==# 'bottom'
-    let l:Function = function('foldclosedend')
-  else
-    return a:line
-  endif
-
-  let l:opencount = 0
-  let l:foldpos = l:Function(a:line)
-  let l:level = a:0 > 0 ? a:1 : foldlevel(a:line)
-  while l:foldpos != -1 && foldlevel(l:foldpos) != l:level
-    foldopen
-    let l:opencount += 1
-    let l:foldpos = l:Function(a:line)
-  endwhile
-
-  if l:foldpos == -1
-    " Close the fold then query the position
-    execute printf('%dfoldclose', a:line)
-    let l:foldpos = l:Function(a:line)
-
-    if l:foldpos == -1
-      " There must not have been a fold to close:
-      " * The fold level could be 0
-      " * Folds might not be enabled.
-      let l:foldpos = a:line
-    elseif foldlevel(l:foldpos) < l:level
-      " * The fold is too small to close (see 'foldminlines')
-      let l:foldpos = a:line
-      execute printf('%dfoldopen', a:line)
-    else
-      execute printf('%dfoldopen', a:line)
-    endif
-  endif
-
-  while l:opencount > 0
-    foldclose
-    let l:opencount -= 1
-  endwhile
-
-  return l:foldpos
-endfunction
-
-" FUNCTION: FoldLevel() {{{2
-function! FoldLevel(level, pos)
-  while foldlevel(line('.')) >= a:level
-    let l:line = line('.')
-    let l:foldpos = s:foldpos(l:line, a:pos, a:level)
-    execute printf('silent! normal! %dG', l:foldpos)
-
-    " If the jumped reached the desired fold level break
-    let l:folddiff = a:pos ==# 'top' ? -1 : 1
-    let l:foldlevel = foldlevel(line('.'))
-    if l:foldlevel == 0 || l:foldlevel <= a:level
-          \ || foldlevel(l:foldpos + l:folddiff) < a:level
-      break
-    endif
-
-    execute printf('silent! normal! %dG', l:foldpos + l:folddiff)
-  endwhile
-
-  return line('.')
-endfunction
-
-" FUNCTION: FoldClose() {{{2
-function! FoldClose(level)
-  let l:winstate = winsaveview()
-  let l:foldtop = FoldLevel(a:level, 'top')
-  if foldlevel(l:foldtop) < a:level
-    return
-  endif
-
-  let l:foldlevels = {}
-  let l:foldbottom = FoldLevel(a:level, 'bottom')
-  execute printf('silent! normal! V%dGzO', l:foldtop)
-
-  while line('.') < l:foldbottom
-    let l:line = line('.')
-    let l:level = foldlevel(l:line)
-    if foldclosed(l:line) == -1
-      let l:foldlevels[l:level] = get(l:foldlevels, l:level, [])
-      call add(l:foldlevels[l:level], l:line)
-      silent! normal! zj
-
-      if l:line == line('.')
-        " Must have reached the last fold in the file, so break
-        break
-      endif
-    endif
-  endwhile
-
-  for l:foldlevel in sort(keys(l:foldlevels), 'n')
-    for l:line in l:foldlevels[l:foldlevel]
-      execute printf('%dfoldclose', l:line)
-    endfor
-  endfor
-    while foldclosed(l:foldtop) == -1
-      execute printf('%dfoldclose', l:line)
-    endwhile
-
-  call winrestview(l:winstate)
-endfunction
-
-" FUNCTION: FoldOpen() {{{2
-function! FoldOpen(level)
-  let l:winstate = winsaveview()
-  let l:foldtop = FoldLevel(a:level, 'top')
-  if foldlevel(l:foldtop) < a:level
-    return
-  endif
-
-  let l:foldbottom = FoldLevel(a:level, 'bottom')
-  execute printf('silent! normal! V%dGzO', l:foldtop)
-  call winrestview(l:winstate)
-endfunction
-
-" FUNCTION: FoldNext() {{{2
-function! FoldNext(repeat)
-  for l:i in range(a:repeat)
-    call FoldLevel(1, 'top')
-    silent! normal! ]z
-    silent! normal! zj
-  endfor
-endfunction
-
-" FUNCTION: FoldPrevious() {{{2
-function! FoldPrevious(repeat)
-  for l:i in range(a:repeat)
-    call FoldLevel(1, 'top')
-    silent! normal! zk
-  endfor
-  call FoldLevel(1, 'top')
-endfunction
-
-" FUNCTION: Mappings {{{2
-nnoremap zT :<C-U>call FoldLevel(v:count1, 'top')<CR>
-nnoremap zB :<C-U>call FoldLevel(v:count1, 'bottom')<CR>
-nnoremap zC :<C-U>call FoldClose(v:count1)<CR>
-nnoremap zO :<C-U>call FoldOpen(v:count1)<CR>
-nnoremap zJ :<C-U>call FoldNext(v:count1)<CR>
-nnoremap zK :<C-U>call FoldPrevious(v:count1)<CR>
 
 """"""""""""""""""""""""
 " FILE TYPES {{{1
@@ -479,151 +200,10 @@ set wildignore+=*.jpg,*.jpeg,*.gif,*.png,*.gif,*.psd,*.o,*.obj
 """"""""""""""""""""""""
 " GENERAL FUNCTIONS {{{1
 """"""""""""""""""""""""
-" Get all windows in all tabs or in a specific tab
-" Looks like this functionality does not exist in vim, but might be coming:
-" https://groups.google.com/forum/#!topic/vim_dev/rbHieR3rEnc
-" FUNCTION: s:bufallwinnr(bufnr, ...) {{{2
-function! s:bufallwinnr(bufnr, ...)
-  " In order to get all the windows for a buffer, first loop over all the tab
-  " pages, get all the windows in each tab page and determine which buffer is
-  " displaying in the window.
-  let l:tabwinnr = []
-
-  let l:t = 1
-  let l:tabnr = get(a:, '1')
-  let l:tcount = tabpagenr('$')
-  while l:t <= l:tcount
-    if l:tabnr > 0 && l:t != l:tabnr
-      let l:t = l:t + 1
-      continue
-    endif
-
-    let l:w = 1
-    let l:wcount = tabpagewinnr(l:t, '$')
-    while l:w <= l:wcount
-      if winbufnr(l:w) == a:bufnr
-        call add(l:tabwinnr, [l:t, l:w])
-      endif
-      let l:w = l:w + 1
-    endwhile
-
-    let l:t = l:t + 1
-  endwhile
-
-  return l:tabwinnr
-endfunction
-
-" FUNCTION: s:execute() {{{2
-" Compatability with older versions of Vim for the execute() function
-function! s:execute(cmd) abort
-  redir => l:output
-  silent! execute a:cmd
-  redir END
-
-  return l:output
-endfunction
-
-" FUNCTION: s:update_previewwinid() {{{2
-" Combine location list entries of visible buffers into the quickfix list
-let g:previewwinid = 0
-function! s:update_previewwinid() abort
-  if s:execute('setlocal previewwindow?') =~# '\s\+previewwindow'
-    let g:previewwinid = win_getid()
-  elseif g:previewwinid == win_getid()
-    let g:previewwinid = 0
-  endif
-endfunction
-
-" FUNCTION: s:quickfix_open() {{{2
-" Open the quickfix window
-function! s:quickfix_open() abort
-  if len(getqflist()) > 0
-    " Save state
-    let l:winstate = winsaveview()
-    let l:winnr = winnr()
-
-    " Open the quickfix window
-    execute printf('botright cwindow %d', s:qfheight)
-
-    " Restore state if needed
-    if l:winnr != winnr()
-      execute printf('%dwincmd w', l:winnr)
-      call winrestview(l:winstate)
-    endif
-  endif
-endfunction
-
-" FUNCTION: s:quickfix_combine() {{{2
-" Combine location list entries of visible buffers into the quickfix list
-function! s:quickfix_combine(...) abort
-  let l:combined = []
-  for l:entry in getqflist()
-    if l:entry.text !~# 'LOCLIST(\d\+):'
-      call add(l:combined, l:entry)
-    endif
-  endfor
-
-  let l:closed = a:0 ? a:1 : -1
-  for l:winnr in range(1, winnr('$'))
-    if l:winnr == l:closed || l:winnr == win_id2win(g:previewwinid)
-      " Ignore the window we just closed and the preview window
-      continue
-    endif
-
-    if len(getwinvar(l:winnr, 'quickfix_title')) > 0
-      " The window variable w:quickfix_title is set for all quickfix/location
-      " list windows automatically by vim, so skip quickfix windows when
-      " combining location lists to prevent duplicates (as location list
-      " windows will return the currently displayed location list when
-      " getloclist() is called.
-      continue
-    endif
-
-    let l:bufnr = winbufnr(l:winnr)
-    if l:bufnr > -1 && l:bufnr != l:closed
-      let l:loclist = []
-      for l:entry in getloclist(l:winnr)
-        if index(l:loclist, l:entry) < 0
-          let l:entry.text = printf('LOCLIST(%d): %s', l:bufnr, l:entry.text)
-          call add(l:loclist, l:entry)
-        endif
-      endfor
-
-      call extend(l:combined, l:loclist)
-    endif
-  endfor
-
-  " Only update it if it has changed, exiting early means it will not try to
-  " open the quickfix window if it was explictly closed but has not changed.
-  if l:combined == getqflist()
-    return
-  endif
-
-  " Set quickfix list
-  call setqflist(l:combined, 'r')
-
-  " Automatically open the quickfix window if it contains any entries
-  if !empty(l:combined)
-    " Only try to open the quickfix window in normal mode, otherwise there is
-    " a risk of losing state (like visual selection or undo history)
-    if  mode(1) ==# 'n'
-      call s:quickfix_open()
-    else
-      " Try to open the quickfix list upon entering normal mode, since there
-      " is no autocommand for entering a particular mode, just wait until the
-      " first CursorHold (which is always normal mode) or CursorMoved (which
-      " could be normal or visual, so verify if it is normal).
-      augroup vimrc_qf
-        autocmd!
-        autocmd vimrc_qf CursorHold *
-              \ | call s:quickfix_open()
-              \ | autocmd! vimrc_qf
-        autocmd vimrc_qf CursorMoved *
-              \ if mode(1) ==# 'n' | call s:quickfix_open() | endif
-              \ | autocmd! vimrc_qf
-      augroup END
-    endif
-  endif
+" FUNCTION: s:script_function() {{{2
+function! s:script_function(func) abort
+  " See http://stackoverflow.com/a/17184285
+  return substitute(a:func, '^s:', matchstr(expand('<sfile>'), '<SNR>\d\+_'),'')
 endfunction
 
 " FUNCTION: s:determine_slash() {{{2
@@ -631,13 +211,6 @@ function! s:determine_slash() abort
   let s:slash = &shellslash || !exists('+shellslash') ? '/' : '\'
 endfunction
 call s:determine_slash()
-
-" FUNCTION: s:script_function() {{{2
-function! s:script_function(func) abort
-  " See http://stackoverflow.com/a/17184285
-  return substitute(a:func, '^s:', matchstr(expand('<sfile>'), '<SNR>\d\+_'),'')
-endfunction
-
 
 """"""""""""""""""""""""
 " SETUP PLUGINS {{{1
@@ -899,380 +472,6 @@ if g:vim_installing && s:PlugActive('tmuxline.vim')
 endif
 
 "//////////"
-" NERDTree {{{2
-"//////////"
-if s:PlugActive('nerdtree')
-  let g:NERDTreeAutoDeleteBuffer = 1
-  let g:NERDTreeMinimalUI = 1
-  let g:NERDTreeMouseMode = 2
-  let g:NERDTreeShowHidden = 1
-  let g:NERDTreeShowHiddenFirst = 1
-  let g:NERDTreeQuitOnOpen = 1
-  let g:NERDTreeWinSize = 35
-  let g:NERDTreeIgnore = [
-        \ '\.py[cd]$',
-        \ '\~$',
-        \ '\.swo$',
-        \ '\.swp$',
-        \ '\.git',
-        \ '\.hg',
-        \ '\.svn',
-        \ '\.bzr',
-        \ '\.map$',
-        \ '.DS_Store'
-        \]
-  let g:NERDTreeGitStatusIndicatorMapCustom = {
-        \ 'Modified' : '✹',
-        \ 'Staged' : '✚',
-        \ 'Untracked' : '✭',
-        \ 'Renamed' : '➜',
-        \ 'Unmerged' : '═',
-        \ 'Deleted' : '✖',
-        \ 'Dirty' : '✗',
-        \ 'Clean' : '✔︎',
-        \ 'Unknown' : '?'
-        \}
-  noremap <leader>n :NERDTreeToggle<CR>
-  noremap <leader>f :NERDTreeFind<CR>
-  autocmd vimrc StdinReadPre * let s:std_in=1
-  " If no file or directory arguments are specified, open NERDtree.
-  " If a directory is specified as the only argument, open it in NERDTree.
-  function! NERDTreeAutoOpen()
-    if argc() == 0 && !exists('s:std_in')
-      NERDTree
-    elseif argc() == 1 && isdirectory(argv(0))
-      bd
-      exec 'cd' fnameescape(argv(0))
-      NERDTree
-    end
-  endfunction
-  autocmd vimrc VimEnter * call NERDTreeAutoOpen()
-endif
-
-"/////////"
-" Tagbar {{{2
-"/////////"
-if s:PlugActive('tagbar')
-  nnoremap <leader>t :TagbarToggle<CR>
-  nnoremap <leader>T :TagbarOpen fj<CR>
-endif
-
-"/////////"
-" Fugitive {{{2
-"/////////"
-if s:PlugActive('vim-fugitive')
-  if s:PlugActive('vim-airline')
-    let g:airline_extensions += ['branch']
-  endif
-endif
-
-"/////////"
-" Signify {{{2
-"/////////"
-if s:PlugActive('vim-signify')
-  let g:signify_vcs_list = ['git']
-
-  if s:PlugActive('vim-airline')
-    let g:airline_extensions += ['hunks']
-  endif
-endif
-
-"///////////"
-" UltiSnips {{{2
-"///////////"
-if s:PlugActive('ultisnips')
-  " Make <Enter> expand snippets if possible (only when the popup menu is
-  " visible), otherwise it simply inserts a carriage return as expected.
-  let g:UltiSnipsExpandTrigger = '<Nop>'
-
-  " NOTE: The weird usage of "\uD" below is due to a workaround to get the
-  " Enter key to not expand (Enter is Ctrl-M which is 0xD in the ASCII table).
-  " For more information `:help map-expression`
-  let g:UltiSnipsExpandCmd = []
-  call add(g:UltiSnipsExpandCmd, '!UltiSnips#ExpandSnippet()')
-  call add(g:UltiSnipsExpandCmd, '&& g:ulti_expand_res == 0')
-  call add(g:UltiSnipsExpandCmd, '? "\uD" : ""')
-
-  let g:UltiSnipsExpandMapping = []
-  call add(g:UltiSnipsExpandMapping, 'inoremap <silent> <expr> <CR>')
-  call add(g:UltiSnipsExpandMapping, 'pumvisible() ? ')
-  call add(g:UltiSnipsExpandMapping, printf("'<C-R>=%s<CR>'",
-        \ join(g:UltiSnipsExpandCmd)))
-  call add(g:UltiSnipsExpandMapping, ": '<CR>'")
-  execute join(g:UltiSnipsExpandMapping)
-
-  let g:UltiSnipsJumpForwardTrigger='<TAB>'
-  let g:UltiSnipsJumpBackwardTrigger='<S-TAB>'
-
-  autocmd vimrc FileType c UltiSnipsAddFiletypes c
-  autocmd vimrc FileType cpp UltiSnipsAddFiletypes cpp
-  autocmd vimrc FileType css UltiSnipsAddFiletypes css
-  autocmd vimrc FileType go UltiSnipsAddFiletypes go
-  autocmd vimrc FileType json UltiSnipsAddFiletypes json
-  autocmd vimrc FileType lua UltiSnipsAddFiletypes lua
-  autocmd vimrc FileType html UltiSnipsAddFiletypes html
-  autocmd vimrc FileType python UltiSnipsAddFiletypes python
-  autocmd vimrc FileType xml UltiSnipsAddFiletypes xml
-endif
-
-"/////////"
-" Neomake {{{2
-"/////////"
-if s:PlugActive('neomake')
-  " For debugging
-  " let g:neomake_verbose = 3
-  " let g:neomake_logfile = 'neomake.log'
-
-  if s:PlugActive('vim-airline')
-    let g:airline_extensions += ['neomake']
-  endif
-
-  autocmd vimrc ColorScheme,VimEnter *
-        \ highlight! link NeomakeErrorSign Error
-        \ | highlight! link NeomakeWarningSign Debug
-
-  autocmd vimrc User NeomakeFinished,NeomakeCountsChanged nested
-        \ call s:quickfix_combine()
-
-  function! s:PylintVersions(...) abort
-    if !exists('s:pylint_versions')
-      let s:pylint_versions = filter(['pylint2', 'pylint3'], 'executable(v:val)')
-
-      " If no explicit pylint versions available try adding the default
-      if empty(s:pylint_versions) && executable('pylint')
-        let s:pylint_versions = ['pylint']
-      endif
-    endif
-
-    return s:pylint_versions
-  endfunction
-
-  function! s:PylintMakerSetup(pylint_version) abort
-    let l:maker_dict = neomake#makers#ft#python#pylint()
-    let l:maker_dict['args'] = [
-          \ '--disable=I,R',
-          \ '--output-format=text',
-          \ '--msg-template="{path}:{line}:{column}:{C}: [{symbol}] {msg}"',
-          \ '--reports=no'
-          \ ]
-
-    let g:['neomake_' . a:pylint_version . '_maker'] = l:maker_dict
-    let g:['neomake_python_' . a:pylint_version . '_maker'] = l:maker_dict
-  endfunction
-  call s:PylintMakerSetup('pylint')
-
-  function! s:PylintMakersSetup() abort
-    for l:pylint_version in s:PylintVersions()
-      call s:PylintMakerSetup(l:pylint_version)
-    endfor
-  endfunction
-  call s:PylintMakersSetup()
-
-  function! s:PylintEnable(all, ...) abort
-    let l:pylint_makers = uniq(sort(filter(copy(a:000), 'executable(v:val)')))
-    let l:enabled_makers = ['mypy'] + l:pylint_makers
-
-    let l:bufnrs = []
-    if a:all
-      let g:neomake_python_enabled_makers = l:enabled_makers
-
-      " In order to ensure the current python buffers are using the correct
-      " pylint set the buffer variable to the global variable if it exists
-      " since the buffer variable overrides the global variable
-
-      " Ensure the buffer is (1) listed
-      let l:expr = 'buflisted(v:val)'
-
-      " (2) a python buffer
-      let l:expr .= '&& getbufvar(v:val, "&filetype") ==# "python"'
-
-      " (3) has the buffer variable 'neomake_python_enabled_makers' set
-      let l:expr .= '&& type(getbufvar(v:val, "neomake_python_enabled_makers", -1)) == type([])'
-
-      " Finally set the enabled makers variable for the filtered buffer list
-      let l:bufnrs = filter(range(1, bufnr('$')), l:expr)
-      for l:bufnr in l:bufnrs
-        call setbufvar(l:bufnr, 'neomake_python_enabled_makers', l:enabled_makers)
-      endfor
-    else
-      let b:neomake_python_enabled_makers = l:enabled_makers
-    endif
-  endfunction
-
-  let g:neomake_python_enabled_makers = filter(['mypy', 'pylint'], 'executable(v:val)')
-  command! -nargs=* -bang -complete=customlist,s:PylintVersions
-        \ NeomakePylintEnable call s:PylintEnable(<bang>0, <f-args>)
-
-  " Correctly setup PYTHONPATH for pylint. Since Neomake-Autolint uses a
-  " temporary file the default PYTHONPATH will be in the temporary directory
-  " rather than the project root.
-  function! s:PylintSetup()
-    " Store off the original PYTHONPATH since it will be modified prior to
-    " doing a lint pass.
-    let s:PythonPath = exists('s:PythonPath') ? s:PythonPath : $PYTHONPATH
-    let l:path = s:PythonPath
-    if match(l:path, getcwd()) >= 0
-      " If the current PYTHONPATH already includes the working directory
-      " then there is nothing left to do
-      return
-    endif
-
-    if !empty(l:path)
-      " Uses the same path separator that the OS uses, so ':' on Unix and ';'
-      " on Windows. Only consider Unix for now.
-      let l:path.=':'
-    endif
-
-    let $PYTHONPATH=l:path . getcwd()
-  endfunction
-
-  autocmd vimrc FileType python
-        \ autocmd vimrc User NeomakeJobInit call s:PylintSetup()
-
-  " For now disable
-  let g:neomake_tex_enabled_makers = []
-  let g:neomake_cpp_enabled_makers = []
-
-  call neomake#configure#automake('nrw', 500)
-endif
-
-"/////////"
-" vim-qf  {{{2
-"/////////"
-if s:PlugActive('vim-qf')
-  nmap <leader>l <Plug>QfLtoggle
-  nmap <leader>q <Plug>QfCtoggle
-
-  nmap <leader>j <Plug>QfCnext
-  nmap <leader>k <Plug>QfCprevious
-
-  nmap <leader>J <Plug>QfLnext
-  nmap <leader>K <Plug>QfLprevious
-
-  let g:qf_mapping_ack_style = 1
-  let g:qf_auto_open_loclist = 0
-  let g:qf_auto_open_quickfix = 0
-  let g:qf_window_bottom = 0
-  let g:qf_loclist_window_bottom = 0
-endif
-
-"////////////////"
-" vim-commentary {{{2
-"////////////////"
-if s:PlugActive('vim-commentary')
-  " example support for apache comments
-  "autocmd vimrc FileType apache setlocal commentstring=#\ %s
-endif
-
-"//////////////////////"
-" vim-multiple-cursors {{{2
-"//////////////////////"
-if s:PlugActive('vim-multiple-cursors')
-  " Fix YouCompleteMe with vim-multiple-cursors
-  " (https://github.com/terryma/vim-multiple-cursors/issues/122#issuecomment-114654967)
-  " Called once right before you start selecting multiple cursors
-  function! Multiple_cursors_before()
-    if exists('*youcompleteme#EnableCursorMovedAutocommands')
-      call youcompleteme#DisableCursorMovedAutocommands()
-    endif
-  endfunction
-
-  " Called once only when the multiple selection is canceled (default <Esc>)
-  function! Multiple_cursors_after()
-    if exists('*youcompleteme#EnableCursorMovedAutocommands')
-      call youcompleteme#EnableCursorMovedAutocommands()
-    endif
-  endfunction
-endif
-
-"////////////"
-" vim-rooter {{{2
-"////////////"
-if s:PlugActive('vim-rooter')
-  let g:rooter_cd_cmd='lcd'
-  let g:rooter_silent_chdir = 1
-endif
-
-"///////////////"
-" vim-gutentags  {{{2
-"///////////////"
-if s:PlugActive('vim-gutentags')
-  let g:gutentags_define_advanced_commands = 1
-
-  " Only list files that are actually part of the project
-  let g:gutentags_file_list_command = {
-        \ 'markers': {
-        \ '.git': 'git ls-files',
-        \ '.hg': 'hg files',
-        \ },
-        \ }
-
-  " Wrap setup in a function so variables can be local
-  function! s:SetupGutenTags()
-    if s:PlugActive('vim-rooter')
-      let l:git_cmd = 'git -C '
-      let l:git_cmd .= expand(s:plugin_directory . '/vim-gutentags')
-      let l:git_cmd .= ' rev-parse --abbrev-ref HEAD'
-
-      let l:git_retval = systemlist(l:git_cmd)
-      if l:git_retval[0] ==# 'buffer-tagfiles'
-        function! GutentagsGetTagfile(path)
-          let l:project_root = FindRootDirectory()
-          if !empty(l:project_root)
-            let b:gutentags_root = l:project_root
-            if isdirectory(expand(l:project_root . '/.git'))
-              let b:gutentags_tagfile = '.git/tags'
-              return 1
-            endif
-          endif
-
-          return 0
-        endfunction
-
-        let g:gutentags_init_user_func = 'GutentagsGetTagfile'
-      else
-        " Use a single cache directory.
-        " 'ctags_cleanup' script can remove orphaned tags files
-        let g:gutentags_cache_dir = $DOTFILES . '/caches/ctags'
-
-        " vim-gutentags expects a function which takes one parameter to it
-        " so wrap the vim-rooter function which does not take a path.
-        function! GutentagsProjectRoot(path) abort
-          let l:root = FindRootDirectory()
-          if type(l:root) != type('') || empty(l:root)
-            let v:errmsg = 'gutentags: cannot find project root'
-            throw v:errmsg
-          endif
-
-          return l:root
-        endfunction
-
-        let g:gutentags_project_root_finder = 'GutentagsProjectRoot'
-      endif
-    else
-      " Use a single cache directory.
-      " 'ctags_cleanup' script can remove orphaned tags files
-      let g:gutentags_cache_dir = $DOTFILES . '/caches/ctags'
-    endif
-  endfunction
-
-  call s:SetupGutenTags()
-
-  let g:gutentags_file_list_command = {
-        \ 'markers': 
-        \ {'.pytags': 'find . -iname "*.py" -type f' }
-        \ }
-
-  " Exuberant ctags has more limited tagging support than Universal ctags.
-  " Since Universal ctags does not have an initial release yet add support for
-  " additional languages using overrides as necessary.
-  if executable('gotags')
-    call add(g:gutentags_project_info, {'type': 'go', 'glob': '*.go'})
-    let g:gutentags_ctags_executable_go = 'gotags'
-  endif
-endif
-
-"//////////"
 " vimtex {{{2
 "//////////"
 if s:PlugActive('vimtex')
@@ -1302,90 +501,6 @@ if s:PlugActive('vimtex')
       \   '-interaction=nonstopmode',
       \ ],
       \}
-endif
-
-"//////////"
-" undotree {{{2
-"//////////"
-if s:PlugActive('undotree')
-  nnoremap <silent> <leader>u :UndotreeToggle<CR>
-endif
-
-"////////////////"
-" vim-easy-align {{{2
-"////////////////"
-if s:PlugActive('vim-easy-align')
-  " Start interactive EasyAlign in visual mode (e.g. vipga)
-  xmap ga <Plug>(EasyAlign)
-
-  " Start interactive EasyAlign for a motion/text object (e.g. gaip)
-  nmap ga <Plug>(EasyAlign)
-endif
-
-"///////////////"
-" incsearch.vim {{{2
-"///////////////"
-if s:PlugActive('incsearch.vim')
-  map /  <Plug>(incsearch-forward)
-  map ?  <Plug>(incsearch-backward)
-  map g/ <Plug>(incsearch-stay)
-
-  let g:incsearch#auto_nohlsearch = 1
-  map n  <Plug>(incsearch-nohl-n)
-  map N  <Plug>(incsearch-nohl-N)
-  map *  <Plug>(incsearch-nohl-*)
-  map #  <Plug>(incsearch-nohl-#)
-  map g* <Plug>(incsearch-nohl-g*)
-  map g# <Plug>(incsearch-nohl-g#)
-endif
-
-"/////////////////////"
-" incsearch-fuzzy.vim {{{2
-"/////////////////////"
-if s:PlugActive('incsearch-fuzzy.vim')
-  function! s:config_fuzzyall(...) abort
-    return extend(copy({
-          \   'converters': [
-          \     incsearch#config#fuzzy#converter(),
-          \     incsearch#config#fuzzyspell#converter()
-          \   ],
-          \ }), get(a:, 1, {}))
-  endfunction
-
-  noremap <silent><expr> z/ incsearch#go(<SID>config_fuzzyall())
-  noremap <silent><expr> z? incsearch#go(<SID>config_fuzzyall({'command': '?'}))
-  noremap <silent><expr> zg? incsearch#go(<SID>config_fuzzyall({'is_stay': 1}))
-endif
-
-"//////////////////////////"
-" incsearch-easymotion.vim {{{2
-"//////////////////////////"
-if s:PlugActive('incsearch-easymotion.vim')
-  function! s:config_easyfuzzymotion(...) abort
-    return extend(copy({
-          \   'converters': [incsearch#config#fuzzy#converter()],
-          \   'modules': [incsearch#config#easymotion#module()],
-          \   'keymap': {"\<CR>": '<Over>(easymotion)'},
-          \   'is_expr': 0,
-          \   'is_stay': 1
-          \ }), get(a:, 1, {}))
-  endfunction
-
-  noremap <silent><expr> <Space>/ incsearch#go(<SID>config_easyfuzzymotion())
-endif
-
-"////////////////"
-" easymotion.vim {{{2
-"////////////////"
-if s:PlugActive('vim-easymotion')
-  nmap F <Plug>(easymotion-s)
-endif
-
-"////////////"
-" indentLine {{{2
-"////////////"
-if s:PlugActive('indentLine')
-  let g:indentLine_fileTypeExclude=['text', 'help', 'tex', 'markdown']
 endif
 
 "//////////////"
@@ -1420,29 +535,6 @@ if s:PlugActive('vim-devicons')
 
     call airline#add_statusline_func(s:script_function('s:AirlineDevIcons'))
   endif
-endif
-
-"//////////////"
-" vim-choosewin {{{2
-"//////////////"
-if s:PlugActive('vim-choosewin')
-  let g:choosewin_overlay_enable = 1
-	let g:choosewin_tabline_replace = 0
-  let g:choosewin_statusline_replace = 0
-  let g:choosewin_overlay_clear_multibyte = 1
-
-  let s:choosewin_current_fg = matchlist(
-        \ s:execute('highlight Directory'), '\%(ctermfg=\(\d\+\)\)')
-  let s:choosewin_overlay_fg = matchlist(
-        \ s:execute('highlight Keyword'), '\%(ctermfg=\(\d\+\)\)')
-  let g:choosewin_color_overlay = {
-        \ 'cterm': [s:choosewin_overlay_fg[1], s:choosewin_overlay_fg[1], '']
-        \ }
-  let g:choosewin_color_overlay_current = {
-        \ 'cterm': [s:choosewin_current_fg[1], s:choosewin_current_fg[1], 'bold']
-        \ }
-
-  nmap <leader>w <Plug>(choosewin)
 endif
 
 " vim: set sw=2 sts=2 fdm=marker:

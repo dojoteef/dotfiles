@@ -324,11 +324,13 @@ evaluate-commands %sh{
 
         # Configure language server for supported languages
         xargs -0 printf "%s\n" <<\EOF
-            hook global WinSetOption filetype=(python) %{
+            hook global WinSetOption filetype=(python|typescript) %{
                 lsp-enable-window
                 lsp-auto-hover-enable
                 lsp-auto-hover-insert-mode-enable
                 lsp-auto-signature-help-enable
+            }
+            hook global WinSetOption filetype=(python) %{
                 hook window BufWritePre .* lsp-formatting-sync
             }
 
