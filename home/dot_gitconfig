@@ -1,0 +1,36 @@
+[user]
+  name = Nader Akoury
+  email = dojoteef@gmail.com
+[core]
+  autocrlf = input
+  whitespace = fix,space-before-tab,tab-in-indent,trailing-space
+  excludesfile = ~/.gitignore_global
+[apply]
+  whitespace = fix
+[branch "master"]
+  remote = origin
+  merge = refs/heads/master
+[color]
+  ui = auto
+[color "branch"]
+  current = yellow reverse
+  local = yellow
+  remote = green
+[color "diff"]
+  meta = yellow bold
+  frag = magenta bold
+  old = red bold
+  new = green bold
+[color "status"]
+  added = yellow
+  changed = green
+  untracked = cyan
+[init]
+  templatedir = ~/.git_template
+[merge]
+  log = true
+[rerere]
+  enabled = 1
+[url "git@github.com:"]
+  pushInsteadOf = "github:"
+  pushInsteadOf = "git://github.com/"

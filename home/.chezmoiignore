@@ -1,0 +1,7 @@
+share/
+{{- if ne .chezmoi.os "darwin" }}
+Library/Preferences/kak-lsp/kak-lsp.toml
+{{- end }}
+{{- if ne .chezmoi.os "linux" }}
+.config/kak-lsp/kak-lsp.toml
+{{- end }}

@@ -1,5 +1,0 @@
-tap 'homebrew/core'
-brew 'bash-completion'
-brew 'brew-cask-completion'
-brew 'launchctl-completion'
-brew 'pip-completion' if system("brew list python &> /dev/null") or system("brew list python3 &> /dev/null")

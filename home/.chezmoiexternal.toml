@@ -1,0 +1,22 @@
+{{- if eq .chezmoi.os "darwin" }}
+["Applications/Itsycal.app"]
+type = "archive"
+stripComponents = 1
+refreshPeriod = "168h"
+url = "https://itsycal.s3.amazonaws.com/Itsycal.zip"
+{{- end }}
+
+{{- range (githubLatestRelease "kak-lsp/kak-lsp").Assets }}
+{{-   $asset := . }}
+{{-   if contains .chezmoi.os $asset.Name }}
+[".local/bin/kak-lsp"]
+type = "file"
+executable = true
+url = {{ $asset.BrowserDownloadURL }}
+
+[".local/bin/kak-lsp".filter]
+command = "tar"
+args = ["--extract", "--file", "/dev/stdin", "--gzip", "--to-stdout", "kak-lsp"]
+{{-     break }}
+{{-   end }}
+{{- end }}

@@ -1,0 +1,12 @@
+{{- $sudo_allowed := false -}}
+{{- if (env "ASK") }}
+{{-   $sudo_allowed = promptBool "allow sudo" }}
+{{- end }}
+
+umask = 0o22
+
+[data]
+sudo_allowed = {{ $sudo_allowed }}
+
+[diff]
+exclude = ["externals"]

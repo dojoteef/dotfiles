@@ -1,0 +1,33 @@
+{{- if and (eq .chezmoi.os "darwin") .sudo_allowed }}
+#!/bin/sh
+
+. "${TMPDIR-/tmp}"/chezmoi-utils.sh
+
+# Prompt for sudo password, then use a keep-alive until the script finishes
+sudo -v
+while true; do
+  sudo -n true
+  sleep 60
+  kill -0 "$$" || exit
+done 2>/dev/null &
+
+if [ ! "$(type -P gcc)" ] || ! xcrun --version &>/dev/null; then
+  # Get and install Xcode CLI tools
+  e_header "Installing XCode Command Line Tools"
+
+  CLI_TEMPFILE="/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress"
+  trap "rm -f ${CLI_TEMPFILE}" EXIT
+
+  touch "$CLI_TEMPFILE"
+  CLI_TOOLS="$(softwareupdate -l | grep '\*.*Command Line Tools for' | tail -n1 | awk -F': ' '{printf $2}')"
+  softwareupdate -i "$CLI_TOOLS" --verbose
+  rm "$CLI_TEMPFILE"
+fi
+
+# Some tools look for XCode, even though they don't need it.
+# https://github.com/joyent/node/issues/3681
+if [ ! -d "$('xcode-select' -print-path 2>/dev/null)" ]; then
+  sudo xcode-select -switch /usr/bin
+fi
+
+{{- end }}

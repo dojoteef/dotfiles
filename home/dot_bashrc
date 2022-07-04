@@ -1,0 +1,17 @@
+# shellcheck shell=bash
+
+# Add binaries into the path
+export PATH=$HOME/.local/bin:$PATH
+
+# Source all bash scripts
+local file
+for file in "$HOME"/.config/bash/*; do
+  # shellcheck source=/dev/null
+  source "$file"
+done
+
+# Local .bashrc to specify machine specific settings and overrides
+if [[ -f "$HOME"/.bashrc.local ]]; then
+  # shellcheck source=/dev/null
+  source "$HOME"/.bashrc.local
+fi

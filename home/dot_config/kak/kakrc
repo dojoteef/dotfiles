@@ -1,0 +1,376 @@
+# Basics
+# ──────
+
+# Set the colorscheme
+colorscheme zenburn
+
+# Width of a tab
+set-option global tabstop 4
+
+# Indent with 4 spaces
+set-option global indentwidth 4
+
+# Use silver searcher
+set-option global grepcmd 'ag --column'
+
+# define xml tag object
+map global object -docstring 'xml tag object' t %{c<lt>([\w.]+)\b[^>]*?(?<lt>!/)>,<lt>/([\w.]+)\b[^>]*?(?<lt>!/)><ret>}
+
+
+# Useful key mappings
+# ───────────────────
+map global normal '#' :comment-line<ret>
+map global user -docstring 'lsp mode' l ':enter-user-mode lsp<ret>'
+
+
+# Use <tab>/<s-tab> for indentation and insert mode completion selection
+# ──────────────────────────────────────────────────────
+define-command insert-tab -hidden -params 1 %{
+    evaluate-commands -draft -save-regs ^ %{
+        echo -debug %arg{1}
+        try %{ execute-keys "Z;%arg{1}z" }
+    }
+}
+define-command insert-tab-fallback -hidden %{
+    # Fallback to insert <tab> or <space>s based on indentwidth
+    evaluate-commands %sh{
+        if [ $kak_opt_indentwidth -eq 0 ]; then
+            echo "execute-keys <tab>"
+        else
+            printf "execute-keys '%${kak_opt_indentwidth}s'\n"
+        fi
+    }
+}
+define-command insert-tab-mapping -hidden -params 1 %{
+    %arg{1} window insert <tab> "<a-;>:insert-tab <lt>a-gt<gt><ret>"
+    %arg{1} window insert <s-tab> "<a-;>:insert-tab <lt>a-lt<gt><ret>"
+}
+define-command completion-tab-mapping -hidden -params 1 %{
+    %arg{1} window insert <tab> <c-n>
+    %arg{1} window insert <s-tab> <c-p>
+}
+map global insert <tab> '<a-;>:insert-tab-fallback<ret>'
+hook global ModeChange 'push:.+:insert' %{ insert-tab-mapping 'map' }
+hook global ModeChange 'pop:insert:normal' %{ insert-tab-mapping 'unmap' }
+hook global InsertCompletionShow .* %{ completion-tab-mapping 'map' }
+hook global InsertCompletionHide .* %{ completion-tab-mapping 'unmap'; insert-tab-mapping 'map' }
+
+hook global BufOpenFile .* editorconfig-autoload
+define-command editorconfig-autoload -hidden %{
+    evaluate-commands %sh{
+        curpath="${kak_buffile%/*}"
+        while [ -n "$curpath" ]; do
+            if [ -f "$curpath/.editorconfig" ]; then
+                echo "editorconfig-load $curpath/.editorconfig"
+                break
+            fi
+            curpath="${curpath%/*}"
+        done
+    }
+}
+
+
+# Surround blocks of text with various types of punctuation
+# ─────────────────────────────────────────────────────────
+declare-user-mode surround
+map global user -docstring 'surround mode' s ':enter-user-mode surround<ret>'
+map global surround ( 'a)<esc>i(<esc>H<a-;>' -docstring '(surround)'
+map global surround { 'a}<esc>i{<esc>H<a-;>' -docstring '{surround}'
+map global surround < 'a<gt><esc>i<lt><esc>H<a-;>' -docstring '<surround>'
+map global surround [ 'a]<esc>i[<esc>H<a-;>' -docstring '[surround]'
+map global surround ) 'a )<esc>i( <esc>2H<a-;>' -docstring '( surround )'
+map global surround } 'a }<esc>i{ <esc>2H<a-;>' -docstring '{ surround }'
+map global surround > 'a <gt><esc>i<lt> <esc>2H<a-;>' -docstring '< surround >'
+map global surround ] 'a ]<esc>i[ <esc>2H<a-;>' -docstring '[ surround ]'
+map global surround '`' 'a`<esc>i`<esc>H<a-;>' -docstring '`surround`'
+map global surround '"' 'a"<esc>i"<esc>H<a-;>' -docstring '"surround"'
+map global surround "'" "a'<esc>i'<esc>H<a-;>" -docstring "'surround'"
+map global surround d "Z<a-S><a-d>z<a-:>H" -docstring 'delete'
+map global surround c ":enter-user-mode surround<ret>d:enter-user-mode surround<ret>" -docstring 'change'
+
+
+# Phantom selections (toggle through selections)
+# ─────────────────────────────────────────────────────────
+set-face global PhantomSelection SecondarySelection
+
+declare-option -hidden str-list phantom_selections
+declare-option -hidden range-specs phantom_selections_ranges
+
+add-highlighter global/ ranges phantom_selections_ranges
+
+define-command -hidden phantom-selection-store-and-highlight %{
+    set-option window phantom_selections %reg{^}
+    set-option window phantom_selections_ranges %val{timestamp}
+    evaluate-commands -no-hooks -draft -itersel %{
+        set-option -add window phantom_selections_ranges "%val{selection_desc}|PhantomSelection"
+    }
+}
+
+define-command -hidden phantom-selection-iterate-impl -params 1 %{
+    evaluate-commands -save-regs ^ %{
+        set-register ^ %opt{phantom_selections}
+
+        try %{ execute-keys <a-z>a }
+        execute-keys %arg{1}
+        # keep the main selection and put all the other in the mark
+        try %{
+            evaluate-commands -draft %{
+                execute-keys -save-regs '' '<a-space>Z'
+                phantom-selection-store-and-highlight
+            }
+            execute-keys <space>
+        }
+    }
+}
+
+define-command phantom-selection-iterate-next -docstring "Turn secondary selections into phantoms and select the next phantom" %{
+    phantom-selection-iterate-impl ')'
+}
+
+define-command phantom-selection-iterate-prev -docstring "Turn secondary selections into phantoms and select the previous phantom" %{
+    phantom-selection-iterate-impl '('
+}
+
+define-command phantom-selection-clear -docstring "Remove all phantom selections" %{
+    unset-option window phantom_selections
+    unset-option window phantom_selections_ranges
+}
+
+define-command phantom-selection-select-all -docstring "Select all phantom selections" %{
+    evaluate-commands -save-regs ^ %{
+        set-register ^ %opt{phantom_selections}
+        try %{
+            execute-keys <a-z>a
+            echo ""
+        }
+    }
+}
+
+define-command phantom-selection-add-selection -docstring "Create phantoms out of the current selections" %{
+    evaluate-commands -draft -save-regs ^ %{
+        set-register ^ %opt{phantom_selections}
+        try %{ execute-keys "<a-z>a" }
+        execute-keys -save-regs '' "Z"
+        phantom-selection-store-and-highlight
+    }
+}
+
+define-command -hidden -override -docstring "Creates a phantom group of selections" \
+    phantom-group %{
+        phantom-selection-add-selection
+        set-option buffer modelinefmt "{PrimarySelection}phantom{StatusModeInfo} %opt{modelinefmt}"
+        map buffer normal <tab>       ':phantom-selection-iterate-next<ret>'
+        map buffer insert <tab>       '<esc>:phantom-selection-iterate-next<ret>i'
+        map buffer normal <s-tab>     ':phantom-selection-iterate-prev<ret>'
+        map buffer insert <s-tab>     '<esc>:phantom-selection-iterate-prev<ret>i'
+        map buffer normal <c-g>       ':phantom-ungroup<ret>'
+        map buffer insert <c-g>       '<esc>:phantom-ungroup<ret>i'
+        map buffer normal <a-space>   ':phantom-ungroup<ret><a-space>:phantom-group<ret><space>'
+        map buffer insert <a-space>   '<esc>:phantom-ungroup<ret><a-space>:phantom-group<ret><space>i'
+    }
+define-command -hidden -override -docstring "Removes a phantom group of selections" \
+    phantom-ungroup %{
+        phantom-selection-select-all
+        phantom-selection-clear
+        unmap buffer normal <tab>      ':phantom-selection-iterate-next<ret>'
+        map   buffer insert <tab>      '<tab>'
+        unmap buffer normal <s-tab>    ':phantom-selection-iterate-prev<ret>'
+        unmap buffer insert <s-tab>    '<esc>:phantom-selection-iterate-prev<ret>i'
+        unmap buffer normal <c-g>      ':phantom-ungroup<ret>'
+        unmap buffer insert <c-g>      '<esc>:phantom-ungroup<ret>i'
+        unmap buffer normal <a-space>  ':phantom-ungroup<ret><a-space>:phantom-group<ret><space>'
+        unmap buffer insert <a-space>  '<esc>:phantom-ungroup<ret><a-space>:phantom-group<ret><space>i'
+        evaluate-commands %sh{printf "set-option buffer modelinefmt '%s'\n" "$(printf "%s" "${kak_opt_modelinefmt}" | sed "s/{PrimarySelection}phantom{StatusModeInfo} //")"}
+    }
+
+map global normal <c-g>  ':phantom-group<ret><space>'
+map global insert <c-g>  '<a-;>:phantom-group<ret><a-;><space>'
+
+
+# Highlighters
+# ────────────
+
+# Display line numbers (normal mode=relative line numbers; insert mode=absolute line numbers)
+hook global WinCreate ^[^*]+$ %{ add-highlighter window/rellinenum number-lines -hlcursor -relative }
+hook global ModeChange '.+:insert' %{ try %{ remove-highlighter window/rellinenum }; try %{ add-highlighter window/abslinenum number-lines -hlcursor } }
+hook global ModeChange '.+:normal' %{ try %{ remove-highlighter window/abslinenum }; try %{ add-highlighter window/rellinenum number-lines -hlcursor -relative } }
+
+# Highlight searches (search uses the '/' register by default)
+hook global RegisterModified '/' %{ try %{ add-highlighter -override global/search regex "%reg{/}" 0:+u } }
+
+# Highlight trailing whitespace
+add-highlighter global/ regex \h+$ 0:Error
+
+# Softwrap long line
+add-highlighter global/ wrap -word -indent
+
+# Highlight the current word under the cursor
+set-face global CurWord default,rgba:80808040
+hook global NormalIdle .* %{
+    evaluate-commands -draft %{
+        try %{
+            exec <space><a-i>w <a-k>\A\w+\z<ret>
+            add-highlighter -override global/curword regex "\b\Q%val{selection}\E\b" 0:CurWord
+        } catch %{
+            add-highlighter -override global/curword group
+        }
+    }
+}
+
+# Highlight matching open/close punctuation (and in insert mode)
+add-highlighter global/ show-matching
+# See https://github.com/mawww/kakoune/issues/1192#issuecomment-422138638
+declare-option -hidden range-specs show_matching_range
+hook global -group kakrc-matching-ranges InsertChar '[[\](){}<>]' %{
+    evaluate-commands -draft %{
+        try %{
+            exec '<esc>;hm<a-k>..<ret>;'
+            set window show_matching_range %val{timestamp} "%val{selection_desc}|MatchingChar"
+        } catch %{
+            set window show_matching_range 0
+        }
+        hook window -once InsertChar '[^[\](){}<>]' %{
+            set window show_matching_range 0
+        }
+        hook window -once ModeChange .* %{
+            set window show_matching_range 0
+        }
+        hook window -once InsertMove .* %{
+            set window show_matching_range 0
+        }
+    }
+}
+add-highlighter global/ ranges show_matching_range
+
+
+# Filetype specific settings
+# ──────────────────────────
+hook global WinSetOption filetype=git-commit %{
+    # wrap to 70 lines
+    add-highlighter buffer/ wrap -word -width 72
+    set window autowrap_column 71
+    # auto-wrap lines
+    autowrap-enable
+}
+
+
+# Useful commands
+# ───────────────
+
+# Find file using silver searcher
+define-command open -menu -params 1 -shell-script-candidates %{ ag -g '' --ignore "$kak_opt_ignored_files" } %{ edit %arg{1} }
+alias global o open  # allow :o to find and edit a file
+
+# Command to enable an IDE-like setup
+define-command ide -params 0..1 -docstring 'ide [session-name]: Turn current session into an IDE' %{
+    # Try naming the session
+    try %{ rename-session %arg{1} }
+
+    # Main client
+    rename-client main
+    set-option global jumpclient main
+
+    # Tools client
+    new rename-client tools
+    set-option global toolsclient tools
+
+    # Docs client
+    new rename-client docs
+    set-option global docsclient docs
+
+    # If running in tmux then arrange the windows nicely
+    evaluate-commands %sh{
+        if [ -n "$TMUX" ]; then
+            tmux set-window-option other-pane-height 15
+            tmux select-layout main-horizontal
+        fi
+    }
+
+    # Make sure the main client is focused
+    focus main
+}
+
+# Support running arbitrary commands asynchronously in a fifo buffer
+define-command -params .. fifo %{
+    evaluate-commands %sh{
+        output=$(mktemp -d "${TMPDIR:-/tmp}"/kak-fifo.XXXXXXXX)/fifo
+        mkfifo "${output}"
+        scroll=""
+        [ "$1" = "-scroll" ] && scroll="$1" && shift
+        ( eval "$@" > "${output}" 2>&1 & ) > /dev/null 2>&1 < /dev/null
+
+        printf %s\\n "evaluate-commands -try-client '$kak_opt_toolsclient' %{
+            edit! -fifo ${output} ${scroll} *fifo*
+            hook -always -once buffer BufCloseFifo .* %{
+                nop %sh{
+                    rm -r $(dirname "${output}")
+                }
+            }
+        }"
+    }
+}
+
+
+# Language server support (via kak-lsp)
+# ─────────────────────────────────────
+
+# Enable the language server
+evaluate-commands %sh{
+    if command -v kak-lsp > /dev/null 2>&1; then
+        kak-lsp --kakoune -s "$kak_session"
+
+        # Uncomment to output debug logs for kak-lsp
+        # (kak-lsp -s $kak_session -vvv ) > /tmp/lsp_"$(date +%F-%T-%N)"_kak-lsp_log 2>&1 < /dev/null &
+
+        # Configure language server for supported languages
+        xargs -0 printf "%s\n" <<\EOF
+            hook global WinSetOption filetype=(python|typescript) %{
+                lsp-enable-window
+                lsp-auto-hover-enable
+                lsp-auto-hover-insert-mode-enable
+                lsp-auto-signature-help-enable
+            }
+
+            # Automatically format the specified file types on save
+            hook global WinSetOption filetype=(python) %{
+                hook window BufWritePre .* lsp-formatting-sync
+            }
+
+            # If a docsclient is set, then use it for hover
+            hook global GlobalSetOption 'docsclient=.+' %{
+                # Auto hover hooks are global and can stack endlessly. Make
+                # sure to disable first before switching to new a hover mode.
+                lsp-auto-hover-disable
+                lsp-auto-hover-insert-mode-disable
+                lsp-auto-hover-enable %opt{docsclient}
+                lsp-auto-hover-insert-mode-enable %opt{docsclient}
+            }
+
+            # If docsclient is unset, then fallback to anchor/modal mode
+            hook global GlobalSetOption 'docsclient=' %{
+                # Auto hover hooks are global and can stack endlessly. Make
+                # sure to disable first before switching to new a hover mode.
+                lsp-auto-hover-disable
+                lsp-auto-hover-insert-mode-disable
+                lsp-auto-hover-enable
+                lsp-auto-hover-insert-mode-enable
+            }
+
+            # Automatically highlight references
+            set-option global lsp_auto_highlight_references true
+
+# Use the python-language-server with mypy by default
+            set-option global lsp_server_configuration pyls.plugins.pyls_mypy.enabled=true
+
+            # The following EOF *must not* be indented: https://github.com/koalaman/shellcheck/wiki/SC1039
+EOF
+    else
+        printf "echo -debug kak-lsp not found in PATH"
+    fi
+}
+
+
+# Load local Kakoune config file if it exists
+# ───────────────────────────────────────────
+
+evaluate-commands %sh{ [ -f "$kak_config"/local.kak ] && echo "source $kak_config/local.kak" }

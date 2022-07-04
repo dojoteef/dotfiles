@@ -1,6 +1,0 @@
-tap 'homebrew/cask'
-cask 'alfred'
-cask 'charles'
-cask 'brave'
-cask 'iterm2'
-cask 'suspicious-package'

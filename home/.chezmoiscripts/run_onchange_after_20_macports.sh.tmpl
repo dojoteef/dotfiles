@@ -1,0 +1,97 @@
+{{- if and (eq .chezmoi.os "darwin") .sudo_allowed }}
+#!/bin/sh
+
+. "${TMPDIR-/tmp}"/chezmoi-utils.sh
+
+{{-   $ports := list
+  "age"
+  "apple-completion"
+  "bandwhich"
+  "bash"
+  "bash-completion"
+  "bat"
+  "bitwarden-cli"
+  "cmake"
+  "coreutils"
+  "difftastic"
+  "diskonaut"
+  "duf"
+  "fd"
+  "ffmpeg"
+  "fish"
+  "fq"
+  "fzf"
+  "git"
+  "htop"
+  "hub"
+  "jq"
+  "kakoune"
+  "luajit"
+  "mdbook"
+  "nmap"
+  "progress"
+  "python310"
+  "ripgrep"
+  "shellcheck"
+  "starship"
+  "tree"
+  "vim"
+  "wezterm"
+  "zenith"
+}}
+
+# Prompt for sudo password, then use a keep-alive until the script finishes
+sudo -v
+while true; do
+  sudo -n true
+  sleep 60
+  kill -0 "$$" || exit
+done 2>/dev/null &
+
+# This is where MacPorts stores its binaries
+BINROOT=/opt/local/bin
+SBINROOT=/opt/local/sbin
+
+if [ ! "$(type -P "$BINROOT/port")" ]; then
+    e_header "Installing MacPorts"
+    MACPORTS_BASE_URL="https://distfiles.macports.org/MacPorts/"
+    MACPORTS_TARBALL=$(
+        curl -fsSL "$MACPORTS_BASE_URL" -o - | \
+        grep -Eo 'MacPorts-[0-9]+\.[0-9]+.[0-9]+\.tar\.gz' | tail -n1
+    )
+
+    trap 'rm -rf "$MACPORTS_TEMPDIR"' EXIT
+    MACPORTS_TEMPDIR=$(mktemp -d) || exit 1
+    cd "$MACPORTS_TEMPDIR"
+    curl -fsSL "$MACPORTS_BASE_URL/$MACPORTS_TARBALL" | tar xz
+    ./configure && make && sudo make install
+    export PATH=$BINROOT:$SBINROOT:$PATH
+fi
+
+e_header "Updating MacPorts"
+sudo "$BINROOT/port" -v selfupdate
+
+e_header "Installing individual ports"
+{{-   range $ports }}
+sudo port install "{{ . }}"
+{{-   end }}
+
+# bash
+if [ "$(type -P "$BINROOT/bash")" ] && ! grep -qw "$BINROOT/bash" /etc/shells; then
+  e_header "Adding $BINROOT/bash to the list of acceptable shells"
+  echo "$BINROOT/bash" | sudo tee -a /etc/shells >/dev/null
+fi
+
+# fish
+if [ "$(type -P "$BINROOT/fish")" ] && ! grep -qw "$BINROOT/fish" /etc/shells; then
+  e_header "Adding $BINROOT/fish to the list of acceptable shells"
+  echo "$BINROOT/fish" | sudo tee -a /etc/shells >/dev/null
+fi
+
+# set default shell
+if [ "$(dscl . -read ~ UserShell | awk '{print $2}')" != "$BINROOT/fish" ]; then
+  e_header "Making $BINROOT/fish your default shell"
+  sudo chsh -s "$BINROOT/fish" "$USER" >/dev/null 2>&1
+fi
+
+{{- end }}

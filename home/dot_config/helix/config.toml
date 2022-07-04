@@ -1,0 +1,5 @@
+[editor]
+scrolloff = 0
+
+[editor.lsp]
+display-messages = true

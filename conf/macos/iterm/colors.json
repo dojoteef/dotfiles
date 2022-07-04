@@ -1,9 +1,0 @@
-{
-  "Profiles" : [
-    {
-      "Name" : "BaseColors",
-      "Description" : "The base profile that sets up the color scheme",
-      "Guid" : "BaseColors"
-    }
-  ]
-}
