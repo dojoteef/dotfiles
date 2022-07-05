@@ -1,4 +1,4 @@
-{{- if and (eq .chezmoi.os "darwin") .sudo_allowed }}
+{{- if and (eq .chezmoi.os "darwin") .sudo_allowed -}}
 #!/bin/sh
 
 . "${TMPDIR-/tmp}"/chezmoi-utils.sh
