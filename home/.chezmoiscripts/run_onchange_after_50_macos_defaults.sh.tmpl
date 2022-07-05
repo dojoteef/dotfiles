@@ -326,25 +326,24 @@ launchctl unload -w /System/Library/LaunchAgents/com.apple.rcd.plist
 # Kill affected apps
 #######################
 
-affected_apps=("Terminal" "Activity Monitor" "cfprefsd" "Dock" "Finder" "Messages" \
-  "Photos" "Safari" "SystemUIServer")
-if [[ "$TERM_PROGRAM" == "Apple_Terminal" ]]; then
+AFFECTED_APPS="Terminal,Activity Monitor,cfprefsd,Dock,Finder,Messages,Photos,Safari,SystemUIServer"
+if [ "$TERM_PROGRAM" == "Apple_Terminal" ]; then
   e_error "You are running this from Terminal.app. After the script successfully \
     completes restart Terminal.app to ensure the changes are correctly applied."
 
-  # Remove "Terminal" it is set as the first element in the array
-  IFS=" " read -r -a affected_apps <<< "${affected_apps[@]:1}"
+  # Remove "Terminal" it is set as the first element in the list
+  AFFECTED_APPS=$(echo $AFFECTED_APPS | sed 's/^Terminal,//')
 fi
 
 e_arrow "To apply all settings you must exit the following applications: \
-  $(join_strings "\n   " "${affected_apps[@]}")"
+  $(echo $AFFECTED_APPS | tr ',' '\n')"
 
-read -r -n 1 -p "Close affected applications [y/N] " kill_affected; echo
-if [[ "$kill_affected" =~ [Yy] ]]; then
-  for app in "${affected_apps[@]}"; do
-    killall "${app}" &> /dev/null
-  done
-fi
+read -r -p "Close affected applications [y/N] " KILL_AFFECTED; echo
+case $KILL_AFFECTED in
+  [yY]*) echo $AFFECTED_APPS | tr ',' '\n' | while read APP; do
+      killall "${APP}" &> /dev/null
+    done;;
+esac
 echo "Done. Note that some of these changes require a logout/restart to take effect."
 
 {{- end }}

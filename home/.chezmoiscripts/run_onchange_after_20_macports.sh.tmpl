@@ -73,7 +73,7 @@ sudo "$BINROOT/port" -v selfupdate
 
 e_header "Installing individual ports"
 {{-   range $ports }}
-sudo port install "{{ . }}"
+sudo "$BINROOT/port" install "{{ . }}"
 {{-   end }}
 
 # bash
