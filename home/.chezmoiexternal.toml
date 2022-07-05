@@ -1,4 +1,5 @@
-{{- if eq .chezmoi.os "darwin" }}
+{{ $os := .chezmoi.os }}
+{{- if eq $os "darwin" }}
 ["Applications/Itsycal.app"]
 type = "archive"
 stripComponents = 1
@@ -8,7 +9,7 @@ url = "https://itsycal.s3.amazonaws.com/Itsycal.zip"
 
 {{- range (gitHubLatestRelease "kak-lsp/kak-lsp").Assets }}
 {{-   $asset := . }}
-{{-   if contains .chezmoi.os $asset.Name }}
+{{-   if contains $os $asset.Name }}
 [".local/bin/kak-lsp"]
 type = "file"
 executable = true
