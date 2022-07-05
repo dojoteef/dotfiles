@@ -13,7 +13,7 @@ url = "https://itsycal.s3.amazonaws.com/Itsycal.zip"
 [".local/bin/kak-lsp"]
 type = "file"
 executable = true
-url = {{ $asset.BrowserDownloadURL }}
+url = "{{ $asset.BrowserDownloadURL }}"
 
 [".local/bin/kak-lsp".filter]
 command = "tar"
