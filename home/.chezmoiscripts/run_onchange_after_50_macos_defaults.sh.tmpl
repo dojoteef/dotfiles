@@ -320,7 +320,7 @@ defaults write com.apple.DiskUtility advanced-image-options -bool true
 defaults -currentHost write com.apple.ImageCapture disableHotPlug -bool true
 
 # Unload the iTunes Media agent which loads iTunes/Music when pressing play/pause
-launchctl unload -w /System/Library/LaunchAgents/com.apple.rcd.plist
+launchctl unload -w /System/Library/LaunchAgents/com.apple.rcd.plist 2> /dev/null
 
 #######################
 # Kill affected apps
