@@ -5,3 +5,4 @@ Library/Preferences/kak-lsp/kak-lsp.toml
 {{- if ne .chezmoi.os "linux" }}
 .config/kak-lsp/kak-lsp.toml
 {{- end }}
+.config/fish/fish_variables
