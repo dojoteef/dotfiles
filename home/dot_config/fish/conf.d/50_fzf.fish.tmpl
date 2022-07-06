@@ -1,0 +1,7 @@
+{{- if eq .chezmoi.os "darwin" -}}
+if type -q fzf
+    and test -n "$MP_PREFIX"
+    and test -d $MP_PREFIX
+    source $MP_PREFIX/share/fzf/shell/key-bindings.fish
+end
+{{- end }}

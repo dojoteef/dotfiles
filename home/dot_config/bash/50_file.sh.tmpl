@@ -25,9 +25,12 @@ fi
 # File size
 alias fs="stat -f '%z bytes'"
 
-if [[ -d ~/.fzf/bin ]]; then
-  # shellcheck source=/dev/null
-  [[ -f ~/.fzf.bash ]] && source ~/.fzf.bash
+if [[ "$(type -P fzf)" ]]; then
+  if [[ -d "$MP_PREFIX" ]]; then
+    source "$MP_PREFIX/share/fzf/shell/completion.bash"
+    source "$MP_PREFIX/share/fzf/shell/key-bindings.bash"
+  fi
+
   if [[ "$(type -P fd)" ]]; then
     export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'
   else

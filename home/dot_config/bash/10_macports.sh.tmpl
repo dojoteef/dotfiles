@@ -1,0 +1,7 @@
+{{- if eq .chezmoi.os "darwin" -}}
+#shellcheck=bash
+if [[ -d /opt/local ]]; then
+    export MP_PREFIX=/opt/local
+    export PATH=/opt/local/bin:/opt/local/sbin:$PATH
+fi
+{{- end }}

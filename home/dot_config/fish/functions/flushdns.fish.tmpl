@@ -1,0 +1,7 @@
+{{- if eq .chezmoi.os "darwin" }}
+function flushdns
+    sudo killall -HUP mDNSResponder
+    sudo killall mDNSResponderHelper
+    sudo dscacheutil -flushcache
+end
+{{- end }}

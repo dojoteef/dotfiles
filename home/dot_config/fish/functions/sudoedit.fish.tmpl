@@ -1,0 +1,5 @@
+{{- if eq .chezmoi.os "darwin" -}}
+function sudoedit --wraps sudo --description "alias sudoedit=sudo -e"
+    sudo -e $argv
+end
+{{- end }}

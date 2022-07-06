@@ -1,0 +1,6 @@
+{{- if eq .chezmoi.os "darwin" -}}
+if test -d /opt/local
+    set -gx MP_PREFIX /opt/local
+    set -gx PATH /opt/local/bin /opt/local/sbin $PATH
+end
+{{- end }}
