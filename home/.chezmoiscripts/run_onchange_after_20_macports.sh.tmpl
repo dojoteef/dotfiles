@@ -16,6 +16,7 @@
   "difftastic"
   "diskonaut"
   "duf"
+  "editorconfig-core-c"
   "fd"
   "ffmpeg"
   "fish"
@@ -33,7 +34,6 @@
   "python310"
   "ripgrep"
   "shellcheck"
-  "starship"
   "tree"
   "vim"
   "wezterm"
@@ -75,6 +75,9 @@ e_header "Installing individual ports"
 {{-   range $ports }}
 sudo "$BINROOT/port" install "{{ . }}"
 {{-   end }}
+
+e_header "Clean up inactive ports"
+sudo port uninstall inactive
 
 # bash
 if [ "$(type -P "$BINROOT/bash")" ] && ! grep -qw "$BINROOT/bash" /etc/shells; then
