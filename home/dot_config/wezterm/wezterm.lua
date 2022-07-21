@@ -2,6 +2,9 @@ local wezterm = require 'wezterm'
 
 return {
     color_scheme = "Zenburn",
+    hide_tab_bar_if_only_one_tab = true,
+    swallow_mouse_click_on_pane_focus = true,
+    swallow_mouse_click_on_window_focus = true,
     keys = {
         {
             key="d", mods="CMD",
@@ -34,6 +37,14 @@ return {
         {
             key="w", mods="CMD",
             action=wezterm.action.CloseCurrentPane{confirm=true},
+        },
+        {
+            key = '_', mods = 'CMD|SHIFT',
+            action = wezterm.action.PaneSelect
+        },
+        {
+            key = '+', mods = 'CMD|SHIFT',
+            action = wezterm.action.PaneSelect{mode='SwapWithActive'},
         },
     }
 }
