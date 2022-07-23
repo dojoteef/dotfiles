@@ -56,7 +56,7 @@ defaults write NSGlobalDomain NSDisableAutomaticTermination -bool true
 
 {{- if .sudo_allowed }}
 # Restart automatically if the computer freezes
-sudo systemsetup -setrestartfreeze on
+sudo systemsetup -setrestartfreeze on 2> /dev/null
 {{- end }}
 
 # Disable smart quotes as they’re annoying when typing code
@@ -88,7 +88,7 @@ defaults write NSGlobalDomain AppleMetricUnits -bool false
 
 {{- if .sudo_allowed }}
 # Set the timezone; see `sudo systemsetup -listtimezones` for other values
-sudo systemsetup -settimezone "America/New_York" > /dev/null
+sudo systemsetup -settimezone "America/New_York" 2> /dev/null
 {{- end }}
 
 # Disable auto-correct, capitalization, and text completion
@@ -324,6 +324,15 @@ defaults -currentHost write com.apple.ImageCapture disableHotPlug -bool true
 
 # Unload the iTunes Media agent which loads iTunes/Music when pressing play/pause
 launchctl unload -w /System/Library/LaunchAgents/com.apple.rcd.plist 2> /dev/null
+
+#######################
+# Request Full Disk Access
+#######################
+e_header "Ensure terminal has full disk access"
+read -r -p "Open System Preferences for full disk access? [y/N] " FULL_DISK_ACCESS; echo
+case $FULL_DISK_ACCESS in
+  [yY]*) open x-apple.systempreferences:com.apple.preference.security\?Privacy_AllFiles;;
+esac
 
 #######################
 # Kill affected apps
