@@ -1,0 +1,37 @@
+{{- if eq .chezmoi.os "darwin" }}
+if type -q hub
+    # Wrap the hub function such that we only request credentials from the keychain for operations
+    # that actually need it. The approach is a little complicated, but does accomplish the task (and
+    # prevents either always requesting credentials or setting the always allow flag for reading the
+    # credentials from the keychain).
+    function hub --wraps hub
+        set CUE "Not Found"
+        set CAPTURED_STDERR ( \
+            # First try to execute the hub command with bogus credentials. If the command requires
+            # valid credentials, then it will fail with the error "Not Found" printed to stderr.
+            GITHUB_USER="*invalid*" GITHUB_PASSWORD="*invalid*" \
+            # We want to make sure to print out any error text to stderr, while eating the the
+            # CUE if it's on the first line. At the same time we need to capture the CUE so we can
+            # determine we actually need to request the access token from the keychain if needed.
+            # So shuffle our file descriptors such that stdout and stderr are swapped.
+            command hub $argv 3>&1 1>&2 2>&3 | \
+            # Then have sed output text to stderr:
+            # 1. if the first line doesn't match the CUE
+            # 2. output all subsequent lines of text
+            # NOTE: The weird spacing is required. Any characters after a filename will be treated
+            # as part of the filename, so we need to newline delimit them
+            sed -ue "1{/^$CUE/!w /dev/stderr
+            } " -e "2,\${w /dev/stderr
+            }" \
+        )
+
+        # Now we can test the captured stderr output to see if it matches the CUE. If so, we need
+        # to request the Github access token from the Keychain.
+        if test "$CAPTURED_STDERR" = "$CUE"
+            echo "Reading Github access token from Keychain"
+            GITHUB_TOKEN=$(security find-generic-password -s hub_cli_access_token -a dojoteef -w) \
+            command hub $argv
+        end
+    end
+end
+{{- end }}
