@@ -21,3 +21,11 @@ args = ["--extract", "--file", "/dev/stdin", "--gzip", "--to-stdout", "kak-lsp"]
 {{-     break }}
 {{-   end }}
 {{- end }}
+
+[".config/fish/completions/hub.fish"]
+type = "file"
+url = '{{ (gitHubLatestRelease "github/hub").TarballURL }}'
+
+[".config/fish/completions/hub.fish".filter]
+command = "tar"
+args = ["--extract", "--file", "/dev/stdin", "--gzip", "--to-stdout", "*/etc/hub.fish_completion"]

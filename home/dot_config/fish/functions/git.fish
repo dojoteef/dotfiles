@@ -1,7 +1,5 @@
-function git --wraps git
-    if type -q hub
+if type -q hub
+    function git --wraps hub
         hub $argv
-    else
-        command git $argv
     end
 end
