@@ -388,7 +388,7 @@ define-command ide -params 0..1 -docstring 'ide [session-name]: Turn current ses
             )
             printf "echo -debug 'Created tools pane (id=$TOOLS_PANE_ID)'"
             DOCS_PANE_ID=$(
-                wezterm cli split-pane --cwd $kak_client_env_PWD --right --pane-id $TOOLS_PANE_ID -- \
+                wezterm cli split-pane --cwd $kak_client_env_PWD --left --pane-id $TOOLS_PANE_ID -- \
                 kak -c $kak_session -e "rename-client docs; set-option global docsclient docs"
             )
             printf "echo -debug 'Created docs pane (id=$DOCS_PANE_ID)'"
