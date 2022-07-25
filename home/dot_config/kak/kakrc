@@ -216,24 +216,16 @@ define-command goto-center -docstring 'Jump to the center of the view' %{
     }
 }
 define-command view-center -docstring 'Position view so the cursor is centered vertically' %{
-    evaluate-commands %sh{
+    view-bottom
+    execute-keys %sh{
         echo $kak_window_range $kak_cursor_line | (
             read y x h w l
-            center=$((y+h/2+1))
-            while test $center -ne $l; do
-                echo "evaluate-commands %{
-                    execute-keys v$(if [ $center -gt $l ]; then echo 'k'; else echo 'j'; fi)
-                    echo -to-file $kak_response_fifo %val{window_range}
-                }" > $kak_command_fifo
-
-                last="$y $x $h $w"
-                read y x h w < $kak_response_fifo
-
-                center=$((y+h/2+1))
-                if [ "$y $x $h $w" = "$last" ]; then
-                    break
-                fi
-            done
+            num_lines=$((l-y-(h+1)/2))
+            if [ $num_lines -lt 0 ]; then
+                echo "${num_lines##-}vk"
+            elif [ $num_lines -gt 0 ]; then
+                echo "${num_lines}vj"
+            fi
         )
     }
 }
@@ -250,10 +242,10 @@ define-command goto-bottom -docstring 'Jump to the bottom of the view' %{
 }
 define-command view-bottom -docstring 'Position view so the cursor is on the last line' %{
     evaluate-commands %sh{
-        echo $kak_window_range $kak_cursor_line | (
-            read y x h w l
+        echo $kak_window_range $kak_cursor_line $kak_buf_line_count | (
+            read y x h w l t
             bottom=$((y+h))
-            while test $bottom -gt $l; do
+            while test $bottom -ge $l; do
                 echo "evaluate-commands %{
                     execute-keys vk
                     echo -to-file $kak_response_fifo %val{window_range}
@@ -267,6 +259,12 @@ define-command view-bottom -docstring 'Position view so the cursor is on the las
                     break
                 fi
             done
+            echo "echo -to-file $kak_response_fifo %val{cursor_line}" > $kak_command_fifo
+            read l2 < $kak_response_fifo
+
+            if [ $l -ne $l2 ]; then
+                echo "execute-keys j"
+            fi
         )
     }
 }
