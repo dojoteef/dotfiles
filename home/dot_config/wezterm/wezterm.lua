@@ -35,6 +35,14 @@ return {
             action=wezterm.action.ActivatePaneDirection("Down"),
         },
         {
+            key="]", mods="CMD",
+            action=wezterm.action.ActivatePaneDirection("Next"),
+        },
+        {
+            key="[", mods="CMD",
+            action=wezterm.action.ActivatePaneDirection("Prev"),
+        },
+        {
             key="w", mods="CMD",
             action=wezterm.action.CloseCurrentPane{confirm=true},
         },

@@ -10,8 +10,8 @@ set-option global tabstop 4
 # Indent with 4 spaces
 set-option global indentwidth 4
 
-# Use silver searcher
-set-option global grepcmd 'ag --column'
+# Use ripgrep
+set-option global grepcmd 'rg --column'
 
 # define xml tag object
 map global object -docstring 'xml tag object' t %{c<lt>([\w.]+)\b[^>]*?(?<lt>!/)>,<lt>/([\w.]+)\b[^>]*?(?<lt>!/)><ret>}
@@ -20,7 +20,6 @@ map global object -docstring 'xml tag object' t %{c<lt>([\w.]+)\b[^>]*?(?<lt>!/)
 # Useful key mappings
 # ───────────────────
 map global normal '#' :comment-line<ret>
-map global user -docstring 'lsp mode' l ':enter-user-mode lsp<ret>'
 
 
 # Use <tab>/<s-tab> for indentation and insert mode completion selection
@@ -191,7 +190,7 @@ map global insert <c-g>  '<a-;>:phantom-group<ret><a-;><space>'
 # ────────────
 
 # Display line numbers (normal mode=relative line numbers; insert mode=absolute line numbers)
-hook global WinCreate ^[^*]+$ %{ add-highlighter window/rellinenum number-lines -hlcursor -relative }
+hook global WinCreate ^([^*]+|\*doc-.*)$ %{ add-highlighter window/rellinenum number-lines -hlcursor -relative }
 hook global ModeChange '.+:insert' %{ try %{ remove-highlighter window/rellinenum }; try %{ add-highlighter window/abslinenum number-lines -hlcursor } }
 hook global ModeChange '.+:normal' %{ try %{ remove-highlighter window/abslinenum }; try %{ add-highlighter window/rellinenum number-lines -hlcursor -relative } }
 
@@ -201,8 +200,119 @@ hook global RegisterModified '/' %{ try %{ add-highlighter -override global/sear
 # Highlight trailing whitespace
 add-highlighter global/ regex \h+$ 0:Error
 
-# Softwrap long line
-add-highlighter global/ wrap -word -indent
+# Softwrap long lines (and correct for improper kakoune movement behavior)
+add-highlighter global/softwrap wrap -word -indent
+define-command goto-center -docstring 'Jump to the center of the view' %{
+    execute-keys %sh{
+        echo $kak_window_range $kak_cursor_line | (
+            read y x h w l
+            num_lines=$((l-y-(h+1)/2))
+            if [ $num_lines -lt 0 ]; then
+                echo "${num_lines##-}j"
+            elif [ $num_lines -gt 0 ]; then
+                echo "${num_lines}k"
+            fi
+        )
+    }
+}
+define-command view-center -docstring 'Position view so the cursor is centered vertically' %{
+    evaluate-commands %sh{
+        echo $kak_window_range $kak_cursor_line | (
+            read y x h w l
+            center=$((y+h/2+1))
+            while test $center -ne $l; do
+                echo "evaluate-commands %{
+                    execute-keys v$(if [ $center -gt $l ]; then echo 'k'; else echo 'j'; fi)
+                    echo -to-file $kak_response_fifo %val{window_range}
+                }" > $kak_command_fifo
+
+                last="$y $x $h $w"
+                read y x h w < $kak_response_fifo
+
+                center=$((y+h/2+1))
+                if [ "$y $x $h $w" = "$last" ]; then
+                    break
+                fi
+            done
+        )
+    }
+}
+define-command goto-bottom -docstring 'Jump to the bottom of the view' %{
+    execute-keys %sh{
+        echo $kak_window_range $kak_cursor_line | (
+            read y x h w l
+            num_lines=$((y+h-l))
+            if [ $num_lines -gt 0 ]; then
+                echo "${num_lines##-}j"
+            fi
+        )
+    }
+}
+define-command view-bottom -docstring 'Position view so the cursor is on the last line' %{
+    evaluate-commands %sh{
+        echo $kak_window_range $kak_cursor_line | (
+            read y x h w l
+            bottom=$((y+h))
+            while test $bottom -gt $l; do
+                echo "evaluate-commands %{
+                    execute-keys vk
+                    echo -to-file $kak_response_fifo %val{window_range}
+                }" > $kak_command_fifo
+
+                last="$y $x $h $w"
+                read y x h w < $kak_response_fifo
+
+                bottom=$((y+h))
+                if [ "$y $x $h $w" = "$last" ]; then
+                    break
+                fi
+            done
+        )
+    }
+}
+define-command goto-top -docstring 'Jump to the top of the view' %{
+    execute-keys %sh{
+        echo $kak_window_range $kak_cursor_line | (
+            read y x h w l
+            num_lines=$((l-y-1))
+            if [ $num_lines -gt 0 ]; then
+                echo "${num_lines##-}k"
+            fi
+        )
+    }
+}
+define-command view-top -docstring 'Position view so the cursor is on the first line' %{
+    evaluate-commands %sh{
+        echo $kak_window_range $kak_cursor_line | (
+            read y x h w l
+            top=$((y+1))
+            while test $top -lt $l; do
+                echo "evaluate-commands %{
+                    execute-keys vj
+                    echo -to-file $kak_response_fifo %val{window_range}
+                }" > $kak_command_fifo
+
+                last="$y $x $h $w"
+                read y x h w < $kak_response_fifo
+
+                top=$((y+1))
+                if [ "$y $x $h $w" = "$last" ]; then
+                    break
+                fi
+            done
+        )
+    }
+}
+map -docstring 'window bottom' global goto b '<esc>:goto-bottom<ret>'
+map -docstring 'window center' global goto c '<esc>:goto-center<ret>'
+map -docstring 'window top' global goto t '<esc>:goto-top<ret>'
+map -docstring 'cursor on bottom' global view b '<esc>:view-bottom<ret>'
+map -docstring 'center cursor (vertically)' global view c '<esc>:view-center<ret>'
+map -docstring 'cursor on top' global view t '<esc>:view-top<ret>'
+map global normal <c-b> ':goto-top<ret>kvb'
+map global normal <c-f> ':goto-bottom<ret>jvt'
+map global normal <c-u> ':goto-center<ret>vb'
+map global normal <c-d> 'vt:goto-center<ret>'
 
 # Highlight the current word under the cursor
 set-face global CurWord default,rgba:80808040
@@ -257,8 +367,8 @@ hook global WinSetOption filetype=git-commit %{
 # Useful commands
 # ───────────────
 
-# Find file using silver searcher
-define-command open -menu -params 1 -shell-script-candidates %{ ag -g '' --ignore "$kak_opt_ignored_files" } %{ edit %arg{1} }
+# Find file using fd
+define-command open -menu -params 1 -shell-script-candidates %{ fd -t f -HE "$kak_opt_ignored_files" } %{ edit %arg{1} }
 alias global o open  # allow :o to find and edit a file
 
 # Command to enable an IDE-like setup
@@ -270,24 +380,44 @@ define-command ide -params 0..1 -docstring 'ide [session-name]: Turn current ses
     rename-client main
     set-option global jumpclient main
 
-    # Tools client
-    new rename-client tools
-    set-option global toolsclient tools
+    try %{ evaluate-commands %sh{
+        if [ "$kak_client_env_TERM_PROGRAM" = "WezTerm" ]; then
+            TOOLS_PANE_ID=$(
+                wezterm cli split-pane --cwd $kak_client_env_PWD --cells 10 --bottom -- \
+                kak -c $kak_session -e "rename-client tools; set-option global toolsclient tools"
+            )
+            printf "echo -debug 'Created tools pane (id=$TOOLS_PANE_ID)'"
+            DOCS_PANE_ID=$(
+                wezterm cli split-pane --cwd $kak_client_env_PWD --right --pane-id $TOOLS_PANE_ID -- \
+                kak -c $kak_session -e "rename-client docs; set-option global docsclient docs"
+            )
+            printf "echo -debug 'Created docs pane (id=$DOCS_PANE_ID)'"
 
-    # Docs client
-    new rename-client docs
-    set-option global docsclient docs
+            # If we're on macOS, then select the pane above
+            if [ "$(type -P osascript)" ]; then
+                osascript \
+                -e "tell application \"WezTerm\" to activate" \
+                -e "tell application \"System Events\"" \
+                -e "    key code 126 using {command down, shift down}" \
+                -e "end tell"
+            fi
+        else
+            # Tools client
+            echo "new 'rename-client tools; set-option global toolsclient tools'"
 
-    # If running in tmux then arrange the windows nicely
-    evaluate-commands %sh{
-        if [ -n "$TMUX" ]; then
-            tmux set-window-option other-pane-height 15
-            tmux select-layout main-horizontal
+            # Docs client
+            echo "new 'rename-client docs; set-option global docsclient docs'"
+
+            # If running in tmux then arrange the windows nicely
+            if [ -n "$kak_client_env_TMUX" ]; then
+                tmux set-window-option other-pane-height 15
+                tmux select-layout main-horizontal
+            fi
+
+            # Make sure the main client is focused
+            echo "focus main"
         fi
-    }
-
-    # Make sure the main client is focused
-    focus main
+    }}
 }
 
 # Support running arbitrary commands asynchronously in a fifo buffer
@@ -323,35 +453,45 @@ evaluate-commands %sh{
         # (kak-lsp -s $kak_session -vvv ) > /tmp/lsp_"$(date +%F-%T-%N)"_kak-lsp_log 2>&1 < /dev/null &
 
         # Configure language server for supported languages
-        xargs -0 printf "%s\n" <<\EOF
-            hook global WinSetOption filetype=(python|typescript) %{
+        xargs -0 printf "%s\n" <<EOF
+            map global user -docstring 'lsp mode' l ':enter-user-mode lsp<ret>'
+            hook -group lsp-config global WinSetOption filetype=(python|typescript) %{
                 lsp-enable-window
+
+                # lsp-auto-* hooks are global and can stack endlessly. Make
+                # sure to disable first before re-enabling.
+                lsp-auto-hover-disable
+                lsp-auto-hover-insert-mode-disable
+                lsp-auto-signature-help-disable
+
                 lsp-auto-hover-enable
                 lsp-auto-hover-insert-mode-enable
                 lsp-auto-signature-help-enable
             }
 
             # Automatically format the specified file types on save
-            hook global WinSetOption filetype=(python) %{
-                hook window BufWritePre .* lsp-formatting-sync
+            hook -group lsp-config global WinSetOption filetype=(python) %{
+                hook -group lsp-config window BufWritePre .* lsp-formatting-sync
             }
 
             # If a docsclient is set, then use it for hover
-            hook global GlobalSetOption 'docsclient=.+' %{
-                # Auto hover hooks are global and can stack endlessly. Make
-                # sure to disable first before switching to new a hover mode.
+            hook -group lsp-config global GlobalSetOption 'docsclient=.+' %{
+                # lsp-auto-* hooks are global and can stack endlessly. Make
+                # sure to disable first before re-enabling.
                 lsp-auto-hover-disable
                 lsp-auto-hover-insert-mode-disable
+
                 lsp-auto-hover-enable %opt{docsclient}
                 lsp-auto-hover-insert-mode-enable %opt{docsclient}
             }
 
             # If docsclient is unset, then fallback to anchor/modal mode
-            hook global GlobalSetOption 'docsclient=' %{
-                # Auto hover hooks are global and can stack endlessly. Make
-                # sure to disable first before switching to new a hover mode.
+            hook -group lsp-config global GlobalSetOption 'docsclient=' %{
+                # lsp-auto-* hooks are global and can stack endlessly. Make
+                # sure to disable first before re-enabling.
                 lsp-auto-hover-disable
                 lsp-auto-hover-insert-mode-disable
+
                 lsp-auto-hover-enable
                 lsp-auto-hover-insert-mode-enable
             }
@@ -359,18 +499,22 @@ evaluate-commands %sh{
             # Automatically highlight references
             set-option global lsp_auto_highlight_references true
 
-# Use the python-language-server with mypy by default
+            # Use the python-language-server with mypy by default
             set-option global lsp_server_configuration pyls.plugins.pyls_mypy.enabled=true
 
             # The following EOF *must not* be indented: https://github.com/koalaman/shellcheck/wiki/SC1039
 EOF
     else
-        printf "echo -debug kak-lsp not found in PATH"
+            printf "echo -debug kak-lsp not found in PATH"
     fi
 }
 
 
-# Load local Kakoune config file if it exists
+# Source any .kak files in the config directory automatically. Kakoune will do this for you if you
+# put the .kak files in a directory named 'autoload', but it will no longer load the scripts in the
+# system 'autoload' directory (unless you explicitly symlink them)
 # ───────────────────────────────────────────
 
-evaluate-commands %sh{ [ -f "$kak_config"/local.kak ] && echo "source $kak_config/local.kak" }
+evaluate-commands %sh{
+    find -L "$kak_config" -type f -iname '*\.kak' -exec echo "try %{ source {} } catch %{ echo -debug Autoload: could not load {} }" \;
+}
