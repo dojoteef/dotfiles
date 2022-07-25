@@ -1,6 +1,6 @@
 function cat --wraps cat
     if type -q bat
-        bat $argv
+        bat --style=plain $argv
     else
         command cat $argv
     end
