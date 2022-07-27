@@ -462,8 +462,15 @@ evaluate-commands %sh{
                 lsp-auto-hover-insert-mode-disable
                 lsp-auto-signature-help-disable
 
-                lsp-auto-hover-enable
-                lsp-auto-hover-insert-mode-enable
+                evaluate-commands %sh{
+                    if [ -z "\$kak_opt_docsclient" ]; then
+                        echo "lsp-auto-hover-enable"
+                        echo "lsp-auto-hover-insert-mode-enable"
+                    else
+                        echo "lsp-auto-hover-enable '\$kak_opt_docsclient'"
+                        echo "lsp-auto-hover-insert-mode-enable '\$kak_opt_docsclient'"
+                    fi
+                }
                 lsp-auto-signature-help-enable
             }
 
@@ -472,26 +479,22 @@ evaluate-commands %sh{
                 hook -group lsp-config window BufWritePre .* lsp-formatting-sync
             }
 
-            # If a docsclient is set, then use it for hover
-            hook -group lsp-config global GlobalSetOption 'docsclient=.+' %{
+            # If docsclient is set, use it for hover, otherwise fallback to anchor/modal mode
+            hook -group lsp-config global GlobalSetOption 'docsclient=.*' %{
                 # lsp-auto-* hooks are global and can stack endlessly. Make
                 # sure to disable first before re-enabling.
                 lsp-auto-hover-disable
                 lsp-auto-hover-insert-mode-disable
 
-                lsp-auto-hover-enable %opt{docsclient}
-                lsp-auto-hover-insert-mode-enable %opt{docsclient}
-            }
-
-            # If docsclient is unset, then fallback to anchor/modal mode
-            hook -group lsp-config global GlobalSetOption 'docsclient=' %{
-                # lsp-auto-* hooks are global and can stack endlessly. Make
-                # sure to disable first before re-enabling.
-                lsp-auto-hover-disable
-                lsp-auto-hover-insert-mode-disable
-
-                lsp-auto-hover-enable
-                lsp-auto-hover-insert-mode-enable
+                evaluate-commands %sh{
+                    if [ -z "\$kak_opt_docsclient" ]; then
+                        echo "lsp-auto-hover-enable"
+                        echo "lsp-auto-hover-insert-mode-enable"
+                    else
+                        echo "lsp-auto-hover-enable '\$kak_opt_docsclient'"
+                        echo "lsp-auto-hover-insert-mode-enable '\$kak_opt_docsclient'"
+                    fi
+                }
             }
 
             # Automatically highlight references
@@ -506,7 +509,6 @@ EOF
             printf "echo -debug kak-lsp not found in PATH"
     fi
 }
-
 
 # Source any .kak files in the config directory automatically. Kakoune will do this for you if you
 # put the .kak files in a directory named 'autoload', but it will no longer load the scripts in the
