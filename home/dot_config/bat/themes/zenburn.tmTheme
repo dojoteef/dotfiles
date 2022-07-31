@@ -29,6 +29,50 @@
         </dict>
         <dict>
             <key>name</key>
+            <string>Bold</string>
+            <key>scope</key>
+            <string>markup.bold</string>
+            <key>settings</key>
+            <dict>
+                <key>fontStyle</key>
+                <string>bold</string>
+            </dict>
+        </dict>
+        <dict>
+            <key>name</key>
+            <string>BoldItalic</string>
+            <key>scope</key>
+            <string>markup.bold markup.italic, markup.italic markup.bold</string>
+            <key>settings</key>
+            <dict>
+                <key>fontStyle</key>
+                <string>bold italic</string>
+            </dict>
+        </dict>
+        <dict>
+            <key>name</key>
+            <string>Italic</string>
+            <key>scope</key>
+            <string>markup.italic</string>
+            <key>settings</key>
+            <dict>
+                <key>fontStyle</key>
+                <string>italic</string>
+            </dict>
+        </dict>
+        <dict>
+            <key>name</key>
+            <string>Strikethrough</string>
+            <key>scope</key>
+            <string>markup.strikethrough</string>
+            <key>settings</key>
+            <dict>
+                <key>fontStyle</key>
+                <string>strike</string>
+            </dict>
+        </dict>
+        <dict>
+            <key>name</key>
             <string>Comment</string>
             <key>scope</key>
             <string>comment</string>
@@ -434,7 +478,7 @@
             <key>name</key>
             <string>Markdown Heading</string>
             <key>scope</key>
-            <string>markup.heading,punctuation.definition.heading</string>
+            <string>markup.heading, punctuation.definition.heading</string>
             <key>settings</key>
             <dict>
                 <key>fontStyle</key>
@@ -458,26 +502,41 @@
         </dict>
         <dict>
             <key>name</key>
+            <string>Markdown Check Box</string>
+            <key>scope</key>
+            <string>markup.checkbox, markup.checkbox punctuation.definition</string>
+            <key>settings</key>
+            <dict>
+                <key>fontStyle</key>
+                <string>bold</string>
+                <key>foreground</key>
+                <string>#EFEFAF</string>
+            </dict>
+        </dict>
+        <dict>
+            <key>name</key>
+            <string>Markdown Check Mark</string>
+            <key>scope</key>
+            <string>markup.checkbox.mark</string>
+            <key>settings</key>
+            <dict>
+                <key>fontStyle</key>
+                <string>bold</string>
+                <key>foreground</key>
+                <string>#EFEFAF</string>
+            </dict>
+        </dict>
+        <dict>
+            <key>name</key>
             <string>Hyperlinks</string>
             <key>scope</key>
-            <string>constant.other.reference.link, string.other.link</string>
+            <string>constant.other.reference.link, string.other.link, markup.underline.link</string>
             <key>settings</key>
             <dict>
                 <key>fontStyle</key>
                 <string>underline</string>
                 <key>foreground</key>
                 <string>#DFCFAF</string>
-            </dict>
-        </dict>
-        <dict>
-            <key>name</key>
-            <string>Hyperlink Punctuation</string>
-            <key>scope</key>
-            <string>meta.image.inline punctuation.definition.string, meta.link.inline punctuation.definition.string, meta.link.reference punctuation.definition.constant, meta.link.reference.literal punctuation.definition.constant, meta.link.reference.literal punctuation.definition.string</string>
-            <key>settings</key>
-            <dict>
-                <key>foreground</key>
-                <string>#F0EFD0</string>
             </dict>
         </dict>
     </array>
