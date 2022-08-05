@@ -500,9 +500,6 @@ evaluate-commands %sh{
             # Automatically highlight references
             set-option global lsp_auto_highlight_references true
 
-            # Use the python-language-server with mypy by default
-            set-option global lsp_server_configuration pyls.plugins.pyls_mypy.enabled=true
-
             # The following EOF *must not* be indented: https://github.com/koalaman/shellcheck/wiki/SC1039
 EOF
     else
