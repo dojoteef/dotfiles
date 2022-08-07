@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Switch between Ripgrep launcher mode (CTRL-R) and fzf filtering mode (CTRL-F)
-RG_PREFIX="rg --column --line-number --no-heading --color=always --smart-case "
+RG_PREFIX="rg --column --line-number --no-heading --color=always --smart-case --hidden "
 INITIAL_QUERY="${*:-}"
 
 # See https://www.shellcheck.net/wiki/SC3050
