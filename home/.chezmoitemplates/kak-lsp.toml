@@ -190,6 +190,11 @@ settings_section = "texlab"
 # See https://github.com/latex-lsp/texlab/blob/master/src/options.rs
 # bibtexFormatter = "texlab"
 
+{{ if eq .chezmoi.os "darwin" }}
+forwardSearch.executable = "/Applications/Skim.app/Contents/SharedSupport/displayline"
+forwardSearch.args = ["%l", "%p", "%f"]
+{{ end }}
+
 [language.lua]
 filetypes = ["lua"]
 roots = [".git", ".hg"]
