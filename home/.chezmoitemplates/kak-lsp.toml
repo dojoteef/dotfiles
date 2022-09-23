@@ -190,9 +190,22 @@ settings_section = "texlab"
 # See https://github.com/latex-lsp/texlab/blob/master/src/options.rs
 # bibtexFormatter = "texlab"
 
+{{ if lookPath "tectonic" }}
+auxDirectory = ".latex"
+build.onSave = true
+build.forwardSearchAfter = true
+build.executable = "sh"
+build.args = [
+    "-c",
+    """
+        mkdir .latex
+        tectonic -X compile %f --synctex --keep-logs --keep-intermediates --outdir .latex
+    """,
+]
+{{ end }}
 {{ if eq .chezmoi.os "darwin" }}
 forwardSearch.executable = "/Applications/Skim.app/Contents/SharedSupport/displayline"
-forwardSearch.args = ["%l", "%p", "%f"]
+forwardSearch.args = ["-g", "%l", "%p", "%f"]
 {{ end }}
 
 [language.lua]

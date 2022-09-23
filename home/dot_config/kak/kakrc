@@ -453,7 +453,7 @@ evaluate-commands %sh{
         # Configure language server for supported languages
         xargs -0 printf "%s\n" <<EOF
             map global user -docstring 'lsp mode' l ':enter-user-mode lsp<ret>'
-            hook -group lsp-config global WinSetOption filetype=(python|typescript) %{
+            hook -group lsp-config global WinSetOption filetype=(python|typescript|latex) %{
                 lsp-enable-window
 
                 # lsp-auto-* hooks are global and can stack endlessly. Make
