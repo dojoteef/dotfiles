@@ -366,7 +366,7 @@ hook global WinSetOption filetype=git-commit %{
 # ───────────────
 
 # Find file using fd
-define-command open -menu -params 1 -shell-script-candidates %{ fd -t f -HE "$kak_opt_ignored_files" } %{ edit %arg{1} }
+define-command open -menu -params 1 -shell-script-candidates %{ fd -t f -H } %{ edit %arg{1} }
 alias global o open  # allow :o to find and edit a file
 
 # Command to enable an IDE-like setup
