@@ -34,3 +34,9 @@
 [url "git@github.com:"]
   pushInsteadOf = "github:"
   pushInsteadOf = "git://github.com/"
+[difftool "difftastic"]
+  cmd = difft "$LOCAL" "$REMOTE"
+[alias]
+  difft = difftool --no-prompt --tool=difftastic
+[pager]
+  difftool = true
